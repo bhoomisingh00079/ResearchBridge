@@ -28,3 +28,8 @@ jobs:
         run: |
           cd backend
           python -m pytest
+
+      - name: Deploy to Render
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
