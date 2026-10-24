@@ -1,9 +1,9 @@
 # Student Research Collaboration Platform: Technical Development Plan
 
 Baseline: **SRS v1.2** (FR-001 to FR-038, NFR-001 to NFR-010, BR-001 to BR-006, sections 6.1 to 6.4, Appendices D to H). Where this plan and the SRS disagree, the SRS wins (SRS 1.1).
-Team: 3 members (Member A, B, C). The runnable starter is in this folder: `main.py`, `rules.py`, `smoke_test.py`, and `experiment/` (Part II).
+Team: 3 members (Member A, B, C). The runnable application entry point is `backend/main.py`; `docs/main.py` is a fuller starter prototype and is not the production entry point. The implementation is incremental: agree on interfaces first, then build three independently testable workstreams.
 
-- Part I: end-to-end development plan (sections 0 to 11).
+- Part I: end-to-end development plan (sections 0 to 14).
 - Part II: Experiment, black-box + white-box testing and Selenium automation, written so **one member (Member C) can complete it alone**, with all the code.
 
 ---
@@ -67,19 +67,41 @@ Rules that implement FR-030 / BR-005 / SRS 5.2 architecturally:
 ## 2. Repository layout (target)
 
 ```
-srcp/
-  backend/app/ main.py config.py db.py models.py security.py deps.py rules.py
-               routers/{auth,profiles,opportunities,applications,projects,resources,milestones,
-                        notifications,agent,dashboards,lor,admin}.py
-               services/{notifier,activity,agent_client,storage}.py
-               jobs/{reminders,agent_scan}.py
-  backend/alembic/            backend/tests/{unit,api}/
-  agent_service/ app.py matching.py progress.py explainer.py tests/
-  frontend/src/ {pages,components,api,hooks}
-  tests/ui/                   (Selenium, Part II)
-  docker-compose.yml  .github/workflows/ci.yml  .env.example  README.md  docs/
+backend/
+  app/
+    main.py config.py db.py models.py security.py deps.py rules.py
+    routers/{auth,profiles,opportunities,applications,projects,resources,milestones,
+             notifications,agent,dashboards,lor,admin}.py
+    services/{notifier,activity,agent_client,storage}.py
+    jobs/{reminders,agent_scan}.py
+  alembic/
+  tests/{unit,api}/
+agent_service/{app,matching,progress,explainer}.py
+agent_service/tests/
+frontend/src/{pages,components,api,hooks}/
+tests/ui/                   (Selenium, Part II)
+docker-compose.yml  .github/workflows/ci.yml  .env.example  README.md  docs/
 ```
-Week-1 task: split the single-file starter `main.py` along the section comments (they already follow SRS 4.1 to 4.9). One person does this in one PR, everyone else waits for the merge.
+The current API scaffold is `backend/main.py`; the larger reference implementation is `docs/main.py`. Member A owns the first production module split and migration setup. Other members can start against the agreed API schemas and local fakes without waiting for that split to finish.
+
+### 2.1 Independent workstreams and contract kit
+
+The three members own separate vertical slices and directories. Shared behavior is agreed through a small contract kit, not by editing another member's implementation.
+
+| Contract artifact | Contents | Owner / approval |
+|---|---|---|
+| API schema and OpenAPI | Routes, request/response fields, role requirements, status codes, stable error shape | Member A drafts; all three approve before the first integration milestone |
+| Domain vocabulary | Role names, status enums, IDs, timestamps, nullable fields, relationship rules from section 3 | Member A drafts from the SRS; Members B and C review fields used by their slices |
+| Fixtures and fakes | Example users/opportunities/applications/projects, fake notifier, fake agent responses, predictable errors | Each member owns fixtures for their slice; shared fixtures are versioned with the contract |
+| Change record | Contract version, compatibility note, affected routes and consumers | Change author updates it; all three approve breaking changes |
+
+Working rules:
+
+1. Agree the minimum route and data contracts in the first two working days; do not wait for complete implementations.
+2. Each member builds a fixture-backed or stubbed version of their slice so another member can integrate before external services are ready.
+3. Keep changes additive where possible. A field rename, status semantic change, or route behavior change requires a contract version update and an integration test.
+4. Integrate at the milestone gates in section 12. Between gates, each stream runs its own tests and contract tests.
+5. Shared database models and app startup are coordinated by Member A. Members B and C own their routers/services and request changes to shared models through a reviewed PR rather than editing those files independently.
 
 ## 3. Data model (SRS 6.1, App. H), PostgreSQL
 
@@ -159,60 +181,73 @@ Scoring (deterministic, explainable, FR-025/026): `score = 10*|shared skills| + 
 
 Every screen implements the four states: loading, empty, error/unavailable, access-denied (visually distinct from empty). Accessibility: contrast, keyboard navigation, labels, tablet-width layout. **Testability convention:** every interactive element has `data-testid="<screen>-<element>"` so the Selenium suite (Part II) does not depend on CSS.
 
-## 7. Work split (3 members)
+## 7. Work packages (three independently testable members)
 
-Principle: each member owns a vertical slice (API + UI + tests) and a set of files, so merges rarely conflict. Shared contracts are the tables in sections 3 and 4.
+Each work package has a named owner, explicit prerequisites, and a measurable completion check. Refine sizing after the contract-kit milestone. A member may use fixtures or fakes for unmet dependencies, but must replace them with contract tests at integration.
 
-### Member A: Identity, opportunities, applications, infrastructure (SRS 4.1 to 4.3, Admin, 5.3, 6.3)
-| ID | Task | FR/NFR |
+### Member A: Identity, opportunities, applications, and platform foundation
+
+Owns `backend/app` foundation, auth/profile/opportunity/application/admin routes, corresponding backend tests, auth/opportunity frontend screens, migrations, and deployment/CI configuration.
+
+| ID | Work package | Needs | Done when |
+|---|---|---|---|
+| A1 | Confirm contract kit; split the current API entry point into config, DB, models, security, dependencies, rules, and routers; set up migrations and seed data | None; contract-kit review | App starts from the documented command; migration can create a clean local DB; existing health behavior remains tested |
+| A2 | Registration, verification, login, password hashing, token handling, profile CRUD, and self-registration role restrictions | A1, contract kit | Functional tests cover valid/invalid registration, verification, generic duplicate errors, login, profiles, and role checks; no production verification token is returned |
+| A3 | Server-side permission matrix and admin user management | A2 | Each protected route is tested for unauthenticated access and relevant roles; denied requests cannot mutate data |
+| A4 | Opportunity create/edit/publish/close/archive/search/detail, capacity validation, deadlines, versions, pagination | A1, contract kit | Lifecycle and filters pass API tests; archived items are excluded from default discovery; edits preserve application-time requirement versions |
+| A5 | Apply, withdraw, list/review applications, faculty decisions, capacity and timestamps | A2, A4 | Duplicate and closed/expired applications are rejected; withdrawal frees a place; only owning faculty can decide; acceptance cannot exceed capacity |
+| A6 | Team creation and membership-facing project endpoints; administrator/coordinator functions | A5, Member B contract | Accepted applications create expected members; membership checks are covered; admin/coordinator access matches the role matrix |
+| A7 | Auth, profile, opportunity discovery/detail/apply, applicant review and admin UI | A2-A6 API contracts | UI handles loading, empty, error, and denied states; controls are keyboard usable and carry `data-testid` attributes |
+| A8 | Docker/compose, environment example, CI, OpenAPI publication, deployment notes and TLS proxy configuration | A1; other streams provide runnable health checks | Clean compose startup, health checks, tests, and image build pass; secrets are external to source control |
+
+### Member B: Project workspace, resources, milestones, notifications, and LOR
+
+Owns project workspace routes/services/tests and their UI. Uses Member A's user/project/application models and the contract kit; does not change shared models without review.
+
+| ID | Work package | Needs | Done when |
+|---|---|---|---|
+| B1 | Resource metadata API and private storage adapter, size/type limits, update/delete, membership-checked upload/download | Contract kit, storage interface; fake storage may be used first | Unauthorized users cannot upload, list, update, delete, or download; files are not served from public/guessable URLs |
+| B2 | Milestones, tasks, status transitions, assignment and lead/faculty permissions | Project/member contract | Valid and invalid state changes are tested; non-members cannot read or mutate project work |
+| B3 | Shared overdue calculation and project activity feed with pagination | B2, activity-log contract | Dashboard and scheduled checks use the same overdue rule; feed is ordered and paginated, with membership enforcement |
+| B4 | Central activity logging for membership, resources, milestones, application and recommendation events | Contract kit; coordinate event names with A and C | Required changes create attributable, queryable activity records; tests verify actor, entity, project, action and time |
+| B5 | In-app notifications and reminders; optional SMTP adapter; scheduled worker with status re-check | Contract kit; notifier fake | In-app delivery works without SMTP; mail failure does not block requests; reminder job rechecks eligibility before sending |
+| B6 | Recommendation-letter issue/request/summary/decision workflow | A2, B4, notification service | Shared-history rule, duplicate pending request, performance summary, decisions, and notifications have API tests |
+| B7 | Project workspace, resources, milestones/tasks, activity, notification and LOR UI | B1-B6 contracts; fake responses until APIs are ready | Responsive UI covers loading, empty, failure and denied states; user-visible status and accessible controls are tested |
+
+### Member C: Agent service, dashboards, safety, and quality
+
+Owns `agent_service/`, backend agent client/dashboard routes, agent/dashboard UI, cross-stream acceptance testing and the final verification guide.
+
+| ID | Work package | Needs | Done when |
+|---|---|---|---|
+| C1 | Internal agent API, service-token validation, request/response schemas, deterministic fake implementation | Contract kit | Requests without the service token fail; schema and timeout behavior have tests; service has no database driver or DB credentials |
+| C2 | Deterministic matching, concrete explanations, collaborator/resource suggestions | C1; A's skill/opportunity contracts; B's resource contract | Fixture tests verify scores, rankings, tie breaks and reason text; only platform-indexed/authorized data is considered |
+| C3 | Milestone inactivity/overdue and opportunity deadline/capacity alerts | C1; B's milestone contract; A's opportunity contract | Boundary tests cover due dates, completed milestones and deadline windows; alerts state advisory actions |
+| C4 | Backend agent client, data minimization, 10-second timeout, fail-safe unavailable response, backend-owned persistence and dismissal | C1-C3 | Agent failure does not break dashboards; only minimal structured data is sent; scans cannot mutate application status or memberships |
+| C5 | Student/faculty/coordinator dashboards and advisory agent panels | A and B API contracts; fake responses for parallel UI work | Role-specific payloads and four UI states are tested; recommendation panel failure is isolated from the rest of the dashboard |
+| C6 | Safety and acceptance suite, basis-path and EP/BVA tests, Selenium tests, performance checks | Stable contracts; A/B/C endpoints available at integration | Agent safety invariant is verified; all acceptance scenarios are traceable; performance is measured at 100 concurrent users against NFR-001/003 |
+| C7 | Setup/run/test documentation and final requirements traceability review | A8 and all stream test results | A new contributor can run the app and tests from README instructions; every FR has an implementation owner and passing verification or a documented gap |
+
+### Cross-stream handoffs
+
+| Producer | Consumer | Frozen handoff |
 |---|---|---|
-| A1 | Split starter into modules, Postgres + Alembic, seed skills and admin | 6.1 |
-| A2 | Email verification via SMTP service with try/except fallback; remove `dev_verify_token`; login rate limit | FR-001, 002 |
-| A3 | Route-permission matrix test: every route x every role | FR-003, NFR-006/007 |
-| A4 | Profiles + controlled skill vocabulary, admin-managed | FR-004, 005 |
-| A5 | Opportunity lifecycle + `opportunity_versions` + deadline + archive hides from default search + pagination | FR-006 to 009 |
-| A6 | Applications, status timestamps, withdraw frees capacity | FR-010 to 012 |
-| A7 | Team creation incl. several opportunities; member-only project view | FR-013, 014 |
-| A8 | Admin console + coordinator category/skill management | 2.3 |
-| A9 | UI: auth, profile, opportunity list/detail/apply, my applications, applicant review, admin | 3.1 |
-| A10 | Dockerfiles, compose, CI (lint, tests, image build), env/secrets, TLS reverse proxy, OpenAPI export | 6.3, 3.4, 5.4 |
+| A | B | User IDs/roles, accepted application IDs, project creation payload, project-member roles, auth dependency |
+| A | C | Student skills/interests, opportunity skills/domain/deadline/capacity, application and project identifiers |
+| B | C | Milestone status/target/activity timestamps, resource metadata and visibility rules, activity events |
+| C | A and B | Agent request/response schemas, timeout/unavailable behavior, recommendation IDs/reasons/status; agent has no write path to academic decisions |
 
-### Member B: Project workspace, notifications, LOR (SRS 4.4 to 4.6, 4.9, 6.2)
-| ID | Task | FR/NFR |
-|---|---|---|
-| B1 | Resource upload to private storage, size/type limits, download endpoint checking membership on **every** request, `PUT` update | FR-015 to 017, NFR-008 |
-| B2 | Milestones + tasks, lead/faculty rules, four status values | FR-018, 019 |
-| B3 | Overdue computation shared by dashboard and background job | FR-020 |
-| B4 | Central `log()` service covering auth events, application status, membership, milestones, agent recs; paginated activity feed | FR-021, 6.2 |
-| B5 | Notification service (in-app always, SMTP optional), scheduler (APScheduler worker) for reminders, re-check status before sending, `REMINDER_DAYS` env | FR-022 to 024 |
-| B6 | LOR: validate shared history or flag, unique pending request, performance summary, statuses + notifications | FR-036 to 038 |
-| B7 | UI: project workspace, resources, milestones/tasks, activity feed, notification bell, LOR screens | 3.1 |
-| B8 | User documentation: student/faculty guide, administrator instructions | 2.6 |
+## 8. Schedule and integration milestones
 
-### Member C: Agent, dashboards, quality (SRS 4.7, 4.8, 5.1, 5.2, 5.4, App. G)
-| ID | Task | FR/NFR |
-|---|---|---|
-| C1 | Agent service container, internal API, service-token auth, request schema validation | 2.1, 3.3 |
-| C2 | Matching + reasons, collaborators, resource suggestions (platform-indexed only) | FR-025 to 028 |
-| C3 | Overdue/inactive detection with recommended action; inactive-opportunity alert | FR-029, 035 |
-| C4 | Backend agent client: 10 s timeout, graceful "unavailable", backend persists recommendations, dismissal, data minimisation | FR-030, 031, NFR-002/009 |
-| C5 | Dashboards API + UI with the four screen states | FR-032 to 034 |
-| C6 | **Safety test**: agent scan/run leaves `applications.status` and `project_members` unchanged; static check that agent_service has no DB driver | FR-030, 5.2 |
-| C7 | **QA:** Part II experiment, acceptance scenarios (App. G), load test (100 users, p95 < 2 s), Selenium suite on our UI | NFR-001/003/004 |
-| C8 | README, setup/run/test guide, API docs page, final traceability check (App. E) | 2.6 |
+The schedule is a four-week target, not a promise that work must be serial. All streams begin with fixtures and contracts, then integrate only against the milestone gates below.
 
-### Integration points
-A to B: `Application.Accepted` then `POST /projects` creates members that B's workspace uses. A to C: profile skills and opportunity skills feed matching. B to C: milestone status and activity timestamps feed progress detection. Freeze these field names in week 1.
-
-## 8. Schedule (4 weeks)
-
-| Week | Member A | Member B | Member C | Exit criterion |
+| Milestone | Member A | Member B | Member C | Exit gate |
 |---|---|---|---|---|
-| 0 (2 days) | Module split, Postgres, CI skeleton | Storage + notifier interfaces | Agent service skeleton, test harness | `docker compose up` runs api + db + agent |
-| 1 | A2, A3, A4, auth UI | B1, B2 | C1, C2, experiment white-box + black-box tests | login, profile, opportunity CRUD, resources, matching demo |
-| 2 | A5, A6, opportunity UI | B3, B4, B5, workspace UI | C3, C4, student dashboard, Selenium on OrangeHRM/SelectorsHub | apply > decide > team > milestone > reminder end to end |
-| 3 | A7, A8, applicant review UI | B6, notification UI, LOR UI | C5 (all dashboards), C6 | all FR-001..038 functional |
-| 4 | A10, security hardening | B8, bug bash | C7 (acceptance, load), C8 | all High and Medium tests pass, docs done, demo |
+| M0 — Contract kit (first 2 days) | Draft API/data contracts; scaffold backend modules and migration path | Review project/resource/milestone/notification fields; define storage/notifier interfaces | Review agent/dashboard payloads; provide fake agent schema and test fixtures | Versioned contracts, initial OpenAPI, shared status/role enums, representative fixtures, local test commands agreed |
+| M1 — Foundation (week 1) | Auth, profiles, role checks, DB/migrations, CI baseline | Storage/notifier interfaces and project workspace skeleton against fakes | Agent skeleton/token auth, pure scoring/rule tests, test harness | API health and auth work; all three streams run isolated tests; no downstream stream blocked on live integrations |
+| M2 — Core workflows (week 2) | Opportunity lifecycle and applications; first auth/opportunity UI | Resources, milestones/tasks, project activity and notifications | Matching/progress rules, agent client, student dashboard | Apply → faculty decision → project → milestone flow works in integration; agent remains advisory and can fail independently |
+| M3 — Complete feature slices (week 3) | Team creation, admin/coordinator, applicant review UI | LOR workflow, reminders, project/notification/LOR UI | Dashboards, recommendations and alert panel, safety tests | Functional coverage across FR-001..038 with known gaps explicitly recorded; role and membership checks pass |
+| M4 — Release hardening (week 4) | Compose/deploy, OpenAPI, security fixes, migration verification | Bug fixes, user guides, notification/storage checks | Acceptance/Selenium/performance tests, traceability report | CI and acceptance suite pass; private-file and agent-safety checks pass; README supports a clean setup |
 
 ## 9. Cross-cutting requirements
 
@@ -259,10 +294,50 @@ A to B: `Application.Accepted` then `POST /projects` creates members that B's wo
 All 38 requirements are covered. Business rules: BR-001 (A5), BR-002 (A6, `rules.py`), BR-003 (A6 + C6), BR-004 (B1), BR-005 (C6), BR-006 (A7, no hard limit).
 
 ## 11. Working agreements
-- Branch per task id (`a5-opportunity-versions`), PR reviewed by one other member, commit messages cite the FR id.
-- CI must pass (`smoke_test.py`, `experiment/test_*.py`, linters) before merge.
-- Defects are filed as issues referencing the FR id (SRS 6.4).
-- Any agent-related PR is reviewed against FR-030 first.
+- Branch per work-package ID (for example `a4-opportunity-lifecycle`); keep PRs scoped to the owning stream and cite relevant FR IDs.
+- Every PR has a reviewer from a different stream when it changes a shared contract, authorization boundary, or integration surface.
+- CI must run the backend unit/API tests, contract tests, Part II experiment tests, and configured linters; Selenium against third-party demo sites is an explicitly separate/manual job.
+- Defects reference FR IDs and include a reproducible test or acceptance case.
+- Contract changes update OpenAPI/fixtures and the change record in the same PR.
+- Any agent-related PR is reviewed against FR-030/BR-005 and reruns the agent safety invariant.
+
+## 12. Milestone integration checks
+
+Integration happens at M0-M4 rather than by merging unfinished work continuously.
+
+| Gate | Required checks |
+|---|---|
+| M0 contract gate | OpenAPI parses; role/status names and error schema are consistent; example requests/responses validate; each stream has a runnable fake or fixture |
+| M1 foundation gate | Clean local database migration; health endpoint; registration/login/role tests; CI runs the same commands documented in README |
+| M2 workflow gate | Published opportunity can be found and applied to; faculty decision creates valid accepted state; project membership controls access; milestone changes are logged |
+| M3 feature gate | All member endpoints use shared auth and schemas; in-app notification, LOR, dashboard, agent failure, and dismissal paths pass integration tests |
+| M4 release gate | Acceptance and safety suites pass; private downloads are membership-checked per request; no agent writes academic decisions; deployment configuration has no committed secrets |
+
+For any failing gate, record the failing FR, owner, reproducer, and next decision. Do not mark a requirement complete based only on a stub or UI mock.
+
+## 13. Acceptance checklist
+
+- [ ] All FR-001 to FR-038 have an owner, API/UI implementation status, and test evidence in section 10.
+- [ ] Every protected route enforces authentication, server-side role checks, and project membership where required.
+- [ ] Opportunity and application rules pass boundary and state-transition tests, including capacity and deadline edges.
+- [ ] Private resources are stored outside public web roots and authorization is checked for each read/download.
+- [ ] Agent service has no database access; agent timeouts are bounded; recommendations cannot change applications or project membership.
+- [ ] Every screen has loading, empty, error/unavailable, and access-denied states.
+- [ ] Search/filter UI does not reload the page; tablet-width and keyboard-access checks are completed.
+- [ ] CI, migrations, Docker Compose, API docs, and clean setup instructions work from a fresh checkout.
+- [ ] NFR-001 and NFR-003 are verified with recorded measurements rather than assumed from configuration.
+
+## 14. Risks and open decisions
+
+| Risk / decision | Impact | Mitigation / owner |
+|---|---|---|
+| Current runnable backend is only a health-check scaffold while the fuller prototype is in `docs/` | Duplicated or inconsistent behavior | Member A identifies reusable logic, ports it into tested backend modules, and does not treat the docs prototype as production code |
+| Three streams need common user/project/status fields | Integration rework | Freeze minimum API schemas and fixtures at M0; add contract tests for every consumer |
+| PostgreSQL, migrations, mail, storage and agent provider increase setup burden | Contributors cannot run feature tests locally | Keep SQLite/test fakes available for unit/API tests; production-like Compose profile verifies PostgreSQL and service wiring |
+| External email, file, or agent service is unavailable | Main workflows become unreliable | In-app notifications are mandatory; isolate email failures; provide deterministic agent/storage fakes and explicit unavailable states |
+| Resource suggestions can expose another project's private data | Privacy/access-control failure | Only return resources visible to the requesting user or explicitly public; test cross-project access denial |
+| Time is insufficient for the entire SRS | Partial feature delivery | Prioritize auth/RBAC, opportunity/application workflow, project membership/resources, and agent safety before optional email and visual polish; report incomplete FRs honestly |
+| Domain policy, hosting details and optional integrations are undecided | Rework or accidental scope growth | Keep the decisions in section 0.3/0.4; change them by team agreement and update tests/documentation |
 
 ---
 
