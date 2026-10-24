@@ -1,126 +1,89 @@
-"""
-Agent Service — FastAPI application (C1).
+"""Internal-only FastAPI surface. It has no database integration by design."""
 
-Internal API for the Student Research Collaboration Platform.
-Listens on port 8100, authenticated via X-Service-Token header (SRS 3.3).
-Has **NO** database credentials or drivers (SRS 5.2, FR-030).
+from __future__ import annotations
 
-Endpoints (development plan, Section 5):
-  POST /internal/v1/match/opportunities     — FR-025, FR-026
-  POST /internal/v1/match/collaborators     — FR-027
-  POST /internal/v1/match/resources         — FR-028
-  POST /internal/v1/progress/milestones     — FR-029
-  POST /internal/v1/progress/opportunities  — FR-035
-"""
-from fastapi import Depends, FastAPI
+import datetime as dt
+import hmac
+import os
+from typing import Any
 
-from .auth import verify_service_token
-from .explainer import DeterministicExplainer, Explainer
-from .matching import match_collaborators, match_opportunities, match_resources
-from .progress import detect_milestone_issues, detect_opportunity_issues
-from .schemas import (
-    MatchCollaboratorsRequest,
-    MatchCollaboratorsResponse,
-    MatchOpportunitiesRequest,
-    MatchOpportunitiesResponse,
-    MatchResourcesRequest,
-    MatchResourcesResponse,
-    ProgressMilestonesRequest,
-    ProgressMilestonesResponse,
-    ProgressOpportunitiesRequest,
-    ProgressOpportunitiesResponse,
-)
+from fastapi import Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel, Field
 
-app = FastAPI(
-    title="ResearchBridge Agent Service",
-    description=(
-        "Internal API for intelligent matching and progress monitoring. "
-        "No database access; receives minimal JSON slices from the backend (NFR-009)."
-    ),
-    version="1.0.0",
-    docs_url=None,  # Internal service — no public docs
-    redoc_url=None,
-)
-
-# Singleton explainer — swap to LLM-backed implementation via TBD-001
-_explainer: Explainer = DeterministicExplainer()
+from .matching import match_opportunities, suggest_collaborators, suggest_resources
+from .progress import milestone_alerts, opportunity_alerts
 
 
-def get_explainer() -> Explainer:
-    """Dependency: return the active Explainer implementation."""
-    return _explainer
+class Student(BaseModel):
+    skills: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
 
 
-# ─── Health (no auth required) ────────────────────────────────────────
+class Opportunity(BaseModel):
+    id: int
+    domain: str = ""
+    required_skills: list[str] = Field(default_factory=list)
 
 
-@app.get("/health")
-def health():
-    """Health check — no authentication required."""
-    return {"status": "healthy", "service": "agent"}
+class OpportunityMatchRequest(BaseModel):
+    student: Student
+    opportunities: list[Opportunity]
 
 
-# ─── Matching endpoints (FR-025 to FR-028) ───────────────────────────
+class CollaboratorRequest(BaseModel):
+    team_skills: list[str]
+    project_requirements: list[str]
+    candidates: list[dict[str, Any]]
 
 
-@app.post(
-    "/internal/v1/match/opportunities",
-    response_model=MatchOpportunitiesResponse,
-    dependencies=[Depends(verify_service_token)],
-)
-def api_match_opportunities(
-    request: MatchOpportunitiesRequest,
-    explainer: Explainer = Depends(get_explainer),
-):
-    """Score and rank opportunities for a student (FR-025/026)."""
-    return match_opportunities(request, explainer)
+class ResourceRequest(BaseModel):
+    required_topics: list[str]
+    resources: list[dict[str, Any]]
 
 
-@app.post(
-    "/internal/v1/match/collaborators",
-    response_model=MatchCollaboratorsResponse,
-    dependencies=[Depends(verify_service_token)],
-)
-def api_match_collaborators(
-    request: MatchCollaboratorsRequest,
-    explainer: Explainer = Depends(get_explainer),
-):
-    """Find collaborators who fill skill gaps in a project team (FR-027)."""
-    return match_collaborators(request, explainer)
+class MilestoneRequest(BaseModel):
+    today: dt.date | None = None
+    milestones: list[dict[str, Any]]
 
 
-@app.post(
-    "/internal/v1/match/resources",
-    response_model=MatchResourcesResponse,
-    dependencies=[Depends(verify_service_token)],
-)
-def api_match_resources(
-    request: MatchResourcesRequest,
-    explainer: Explainer = Depends(get_explainer),
-):
-    """Suggest platform-indexed resources for a project (FR-028)."""
-    return match_resources(request, explainer)
+class OpportunityAlertRequest(BaseModel):
+    today: dt.date | None = None
+    opportunities: list[dict[str, Any]]
 
 
-# ─── Progress endpoints (FR-029, FR-035) ─────────────────────────────
+def create_app(service_token: str | None = None) -> FastAPI:
+    expected = service_token if service_token is not None else os.getenv("SERVICE_TOKEN", "")
+    app = FastAPI(title="ResearchBridge Internal Agent", version="1.0.0", docs_url=None, redoc_url=None)
+
+    def authenticate(x_service_token: str | None = Header(default=None, alias="X-Service-Token")) -> None:
+        if not expected or not x_service_token or not hmac.compare_digest(expected, x_service_token):
+            raise HTTPException(status_code=401, detail="Invalid service token")
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "healthy"}
+
+    @app.post("/internal/v1/match/opportunities", dependencies=[Depends(authenticate)])
+    def opportunities_match(body: OpportunityMatchRequest) -> dict[str, Any]:
+        return {"items": match_opportunities(body.student.model_dump(), [x.model_dump() for x in body.opportunities])}
+
+    @app.post("/internal/v1/match/collaborators", dependencies=[Depends(authenticate)])
+    def collaborators(body: CollaboratorRequest) -> dict[str, Any]:
+        return {"items": suggest_collaborators(body.team_skills, body.project_requirements, body.candidates)}
+
+    @app.post("/internal/v1/match/resources", dependencies=[Depends(authenticate)])
+    def resources(body: ResourceRequest) -> dict[str, Any]:
+        return {"items": suggest_resources(body.required_topics, body.resources)}
+
+    @app.post("/internal/v1/progress/milestones", dependencies=[Depends(authenticate)])
+    def milestones(body: MilestoneRequest) -> dict[str, Any]:
+        return {"items": milestone_alerts(body.milestones, body.today or dt.date.today())}
+
+    @app.post("/internal/v1/progress/opportunities", dependencies=[Depends(authenticate)])
+    def opportunity_progress(body: OpportunityAlertRequest) -> dict[str, Any]:
+        return {"items": opportunity_alerts(body.opportunities, body.today or dt.date.today())}
+
+    return app
 
 
-@app.post(
-    "/internal/v1/progress/milestones",
-    response_model=ProgressMilestonesResponse,
-    dependencies=[Depends(verify_service_token)],
-)
-def api_progress_milestones(request: ProgressMilestonesRequest):
-    """Detect overdue and inactive milestones (FR-029)."""
-    return detect_milestone_issues(request)
-
-
-@app.post(
-    "/internal/v1/progress/opportunities",
-    response_model=ProgressOpportunitiesResponse,
-    dependencies=[Depends(verify_service_token)],
-)
-def api_progress_opportunities(request: ProgressOpportunitiesRequest):
-    """Detect opportunity alerts for faculty (FR-035)."""
-    return detect_opportunity_issues(request)
-
+app = create_app()

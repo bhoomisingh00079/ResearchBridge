@@ -1,9 +1,9 @@
 # Student Research Collaboration Platform: Technical Development Plan
 
 Baseline: **SRS v1.2** (FR-001 to FR-038, NFR-001 to NFR-010, BR-001 to BR-006, sections 6.1 to 6.4, Appendices D to H). Where this plan and the SRS disagree, the SRS wins (SRS 1.1).
-Team: 3 members (Member A, B, C). The runnable starter is in this folder: `main.py`, `rules.py`, `smoke_test.py`, and `experiment/` (Part II).
+Team: 3 members (Member A, B, C). The runnable application entry point is `backend/main.py`; `docs/main.py` is a fuller starter prototype and is not the production entry point. The implementation is incremental: agree on interfaces first, then build three independently testable workstreams.
 
-- Part I: end-to-end development plan (sections 0 to 11).
+- Part I: end-to-end development plan (sections 0 to 14).
 - Part II: Experiment, black-box + white-box testing and Selenium automation, written so **one member (Member C) can complete it alone**, with all the code.
 
 ---
@@ -67,19 +67,41 @@ Rules that implement FR-030 / BR-005 / SRS 5.2 architecturally:
 ## 2. Repository layout (target)
 
 ```
-srcp/
-  backend/app/ main.py config.py db.py models.py security.py deps.py rules.py
-               routers/{auth,profiles,opportunities,applications,projects,resources,milestones,
-                        notifications,agent,dashboards,lor,admin}.py
-               services/{notifier,activity,agent_client,storage}.py
-               jobs/{reminders,agent_scan}.py
-  backend/alembic/            backend/tests/{unit,api}/
-  agent_service/ app.py matching.py progress.py explainer.py tests/
-  frontend/src/ {pages,components,api,hooks}
-  tests/ui/                   (Selenium, Part II)
-  docker-compose.yml  .github/workflows/ci.yml  .env.example  README.md  docs/
+backend/
+  app/
+    main.py config.py db.py models.py security.py deps.py rules.py
+    routers/{auth,profiles,opportunities,applications,projects,resources,milestones,
+             notifications,agent,dashboards,lor,admin}.py
+    services/{notifier,activity,agent_client,storage}.py
+    jobs/{reminders,agent_scan}.py
+  alembic/
+  tests/{unit,api}/
+agent_service/{app,matching,progress,explainer}.py
+agent_service/tests/
+frontend/src/{pages,components,api,hooks}/
+tests/ui/                   (Selenium, Part II)
+docker-compose.yml  .github/workflows/ci.yml  .env.example  README.md  docs/
 ```
-Week-1 task: split the single-file starter `main.py` along the section comments (they already follow SRS 4.1 to 4.9). One person does this in one PR, everyone else waits for the merge.
+The current API scaffold is `backend/main.py`; the larger reference implementation is `docs/main.py`. Member A owns the first production module split and migration setup. Other members can start against the agreed API schemas and local fakes without waiting for that split to finish.
+
+### 2.1 Independent workstreams and contract kit
+
+The three members own separate vertical slices and directories. Shared behavior is agreed through a small contract kit, not by editing another member's implementation.
+
+| Contract artifact | Contents | Owner / approval |
+|---|---|---|
+| API schema and OpenAPI | Routes, request/response fields, role requirements, status codes, stable error shape | Member A drafts; all three approve before the first integration milestone |
+| Domain vocabulary | Role names, status enums, IDs, timestamps, nullable fields, relationship rules from section 3 | Member A drafts from the SRS; Members B and C review fields used by their slices |
+| Fixtures and fakes | Example users/opportunities/applications/projects, fake notifier, fake agent responses, predictable errors | Each member owns fixtures for their slice; shared fixtures are versioned with the contract |
+| Change record | Contract version, compatibility note, affected routes and consumers | Change author updates it; all three approve breaking changes |
+
+Working rules:
+
+1. Agree the minimum route and data contracts in the first two working days; do not wait for complete implementations.
+2. Each member builds a fixture-backed or stubbed version of their slice so another member can integrate before external services are ready.
+3. Keep changes additive where possible. A field rename, status semantic change, or route behavior change requires a contract version update and an integration test.
+4. Integrate at the milestone gates in section 12. Between gates, each stream runs its own tests and contract tests.
+5. Shared database models and app startup are coordinated by Member A. Members B and C own their routers/services and request changes to shared models through a reviewed PR rather than editing those files independently.
 
 ## 3. Data model (SRS 6.1, App. H), PostgreSQL
 
@@ -159,60 +181,152 @@ Scoring (deterministic, explainable, FR-025/026): `score = 10*|shared skills| + 
 
 Every screen implements the four states: loading, empty, error/unavailable, access-denied (visually distinct from empty). Accessibility: contrast, keyboard navigation, labels, tablet-width layout. **Testability convention:** every interactive element has `data-testid="<screen>-<element>"` so the Selenium suite (Part II) does not depend on CSS.
 
-## 7. Work split (3 members)
+### 6.1 Shared visual design system (ResearchBridge UI reference)
 
-Principle: each member owns a vertical slice (API + UI + tests) and a set of files, so merges rarely conflict. Shared contracts are the tables in sections 3 and 4.
+Use the supplied ResearchBridge UI reference as the source of truth for the visual direction: calm, academic, nature-inspired, with deep-teal navigation, warm ivory page surfaces, muted sage accents, restrained lime highlights, and occasional orange emphasis. A miniature research-city motif may make the public landing page and milestone/progress experience distinctive, but must not replace platform content or turn routine screens into illustrations. The HEX values below are approximate design tokens based on the reference, not SRS-mandated values. Keep them centralized as CSS custom properties or equivalent theme tokens; components must consume tokens rather than introduce one-off palette values.
 
-### Member A: Identity, opportunities, applications, infrastructure (SRS 4.1 to 4.3, Admin, 5.3, 6.3)
-| ID | Task | FR/NFR |
+| Token | Approximate HEX | Intended use |
 |---|---|---|
-| A1 | Split starter into modules, Postgres + Alembic, seed skills and admin | 6.1 |
-| A2 | Email verification via SMTP service with try/except fallback; remove `dev_verify_token`; login rate limit | FR-001, 002 |
-| A3 | Route-permission matrix test: every route x every role | FR-003, NFR-006/007 |
-| A4 | Profiles + controlled skill vocabulary, admin-managed | FR-004, 005 |
-| A5 | Opportunity lifecycle + `opportunity_versions` + deadline + archive hides from default search + pagination | FR-006 to 009 |
-| A6 | Applications, status timestamps, withdraw frees capacity | FR-010 to 012 |
-| A7 | Team creation incl. several opportunities; member-only project view | FR-013, 014 |
-| A8 | Admin console + coordinator category/skill management | 2.3 |
-| A9 | UI: auth, profile, opportunity list/detail/apply, my applications, applicant review, admin | 3.1 |
-| A10 | Dockerfiles, compose, CI (lint, tests, image build), env/secrets, TLS reverse proxy, OpenAPI export | 6.3, 3.4, 5.4 |
+| `--color-teal` | `#123F3D` | Primary sidebar/navigation, primary buttons, important links and interactive elements |
+| `--color-teal-dark` | `#0B302F` | Dark navigation surfaces, hover/pressed states, strong emphasis |
+| `--color-ivory` | `#F7F5EC` | Main page background and large content areas |
+| `--color-cream` | `#FCFBF6` | Cards, forms, dialogs and elevated content surfaces |
+| `--color-sage` | `#7FA99B` | Secondary emphasis, active navigation details and subtle decorative elements |
+| `--color-sage-pale` | `#E4EDE4` | Selected navigation backgrounds, chips and secondary-state surfaces |
+| `--color-lime` | `#B9DD58` | High-priority calls to action, positive indicators and selected highlights; use sparingly, typically with deep-teal text |
+| `--color-orange` | `#F28C45` | Warnings and occasional small accents; never use as a universal status or failure colour |
+| `--color-text` | `#183C3A` | Headings and primary content |
+| `--color-text-muted` | `#607875` | Descriptions, metadata and supporting text |
+| `--color-border` | `#D7DED5` | Thin card outlines, dividers and input borders |
+| `--color-white` | `#FFFFFF` | Clean input surfaces and selected elements where useful |
+| `--color-error` | `#E76F51` | Error text, error icons and failure indicators, always accompanied by a clear label/message |
 
-### Member B: Project workspace, notifications, LOR (SRS 4.4 to 4.6, 4.9, 6.2)
-| ID | Task | FR/NFR |
+#### Application across screens
+
+| Surface / feature | Design-token guidance |
+|---|---|
+| Landing page, hero and footer | Ivory page canvas, teal navigation and headings, cream content surfaces; reserve lime for the primary "Get started" action and use sage/orange only as restrained supporting accents. A polished, lightweight isometric miniature research campus may serve as the main visual showcase, supporting the platform's actual student/faculty research features without overwhelming the headline, calls to action or content. |
+| Login, registration and verification | Ivory surroundings, cream form surface, teal submit/action controls, clear text labels and inline validation; use error red for invalid fields and messages without relying on colour alone. |
+| Dashboards, statistics and deadlines | Ivory background and cream statistics/work panels, teal headings, sage for secondary data emphasis, lime for a small number of positive/high-priority indicators, and orange for upcoming or cautionary deadlines. Keep chart/status labels visible. |
+| Researcher discovery, profiles and collaboration requests | Use consistent teal actions and navigation, pale-sage chips for skills/interests, muted metadata, and cream profile/result surfaces. Preserve readable biography and research text widths. |
+| Research projects, workspaces, tasks, discussions and member lists | Keep the workspace neutral and content-first; use teal for active tabs/actions, sage for secondary structure, and consistent status labels for tasks and projects. Do not assign a unique saturated background to each panel. |
+| Messages, notifications, invitations and activity feeds | Cream/white reading surfaces, thin borders, teal links/actions; use lime only for unread or positive emphasis, orange for warnings, and explicit text for invitation/activity state. |
+| Search, filters, tags, badges, forms, tables and dialogs | Teal focus/primary actions, pale-sage selected filters, sage skill tags, cream/white form surfaces, subtle borders and aligned table data. Use shared control states and avoid nested cards. |
+| Empty, error, loading, warning and success states | Keep state layouts consistent across screens. Provide concise text and a meaningful icon/label; use semantic tokens for errors/warnings/success, and skeletons or progress indicators for loading. |
+| Mobile and tablet navigation | Preserve the same tokens and hierarchy. Collapse the desktop sidebar into an accessible menu or compact navigation; retain access to every destination, visible active state, and clear focus/pressed states. Do not hide warnings, task status, or essential content. |
+
+#### Design and accessibility rules
+
+- Maintain a calm, premium academic atmosphere with moderate corner radii, thin consistent borders, restrained shadows, practical whitespace and clear typographic hierarchy.
+- Use a readable sans-serif for interface text; an optional restrained serif may be used for selected editorial headings only. Long abstracts, biographies and project descriptions must remain comfortable to read.
+- Prefer flat, structured surfaces. Avoid excessive gradients, neon colours, heavy shadows, glassmorphism, decorative imagery that competes with research content, and a different colour for every card.
+- Reserve substantial custom illustration and distinctive motion for the landing-page campus and a progress visualization tied to actual milestone data. All other screens use the shared, practical application layout; do not add city artwork to every page.
+- Build any campus illustration with optimized SVG, layered static assets, or CSS before considering a new dependency. Avoid heavy 3D/WebGL or overlapping animation libraries. Respect `prefers-reduced-motion`; replace nonessential movement with static states or simple transitions.
+- Use deep teal for primary navigation and actions, ivory for page backgrounds, cream for forms/cards, sage for secondary emphasis, lime sparingly for important/positive highlights, and orange only for limited warning emphasis.
+- Keep semantic status colours distinct from decoration. Pair every success, error, warning, application, project, task and agent-advisory status with visible text and/or an accessible icon; colour alone never communicates meaning.
+- Text, controls, borders and focus indicators must meet WCAG 2.1 AA contrast requirements for their use. Verify contrast for actual foreground/background token pairs; adjust foreground or surface treatment where an approximate palette pairing is insufficient.
+- All controls must have visible keyboard focus and discernible hover, pressed, selected, disabled and loading states. Forms need associated labels, keyboard-operable validation, and errors that identify the affected field and how to correct it.
+- Test desktop, tablet and mobile breakpoints. Responsive layouts must preserve navigation, readable line lengths, table/result associations, status labels, warnings, and access to all actions.
+- Use the tokens consistently across all routes and roles; screen-specific components may arrange content differently but must not establish competing palettes.
+
+### 6.2 Signature experiences and implementation boundaries
+
+The visual treatment below is a presentation layer for ResearchBridge requirements, not permission to expand the product scope. Existing SRS behavior, API contracts and truthful backend state remain authoritative.
+
+#### Public landing page — miniature research city
+
+- If the application includes a public landing page, use it as the primary visual showcase: an elegant, lightweight isometric campus may include a library, research laboratory, collaboration hub, observatory, paths, trees or small researcher figures where appropriate.
+- Introduce the campus with restrained entrance/reveal motion and optional subtle section transitions. Keep the headline, concise SRS-grounded feature description, navigation and calls to action prominent and usable.
+- Explain only supported ResearchBridge capabilities (such as opportunity discovery, applications, project milestones and advisory recommendations). Do not imply unsupported functionality or use fabricated metrics.
+- Keep the illustration optimized, responsive, accessible as decorative content when appropriate, and subordinate to the page's purpose. Provide a static/reduced-motion rendering.
+
+#### Project milestones and research progress — progress-linked campus
+
+- Use a stylized campus/map as an optional central visualization within the existing project workspace and milestone experience (FR-018 to FR-020); locations may represent real projects or milestones only when the corresponding data exists.
+- Distinguish completed, active, upcoming and unavailable states using the shared semantic status treatments, visible labels and accessible icons—not color alone.
+- Keep a conventional milestone list or detail panel available as the primary accessible alternative. The visualization must not be required to read, update or understand progress.
+- Derive every state from backend-confirmed project/milestone data. Animate a completion only after a successful response confirms it; on failure, retain the prior state and show the actual error.
+- Use a restrained progress-linked highlight or completion response rather than game mechanics, points or fabricated progress. Provide loading, empty and error states.
+
+#### Agent recommendations — advisory, restrained
+
+- Keep the agent experience aligned with the existing advisory recommendation and alert workflow (FR-025 to FR-031). Make reasons, dismiss controls and unavailable/error states clear.
+- Use a clean panel within the supported dashboard or project experience. A subtle processing indicator is appropriate only during a real pending request; stop it on success, failure or timeout.
+- Do not add a chat interface, conversation history, connected concept/source graph, generated answer workflow or standalone agent page unless an approved API contract and requirement support it. Never fabricate recommendations or imply that agent output changes academic decisions.
+
+#### Remaining platform screens
+
+- Keep authentication/onboarding, dashboards, opportunity search and detail, applicant review, profiles where supported, project workspace, resources, tasks, discussions, messages/notifications, admin/coordinator and LOR screens conventional and functional.
+- Use shared navigation, page headers, forms, tables, status labels and reusable components. Prioritize information density, readable content, clear actions and actual workflows over decoration.
+- Do not create new pages merely because a visual concept suggests them; implement only screens/features required by the SRS or approved API contracts.
+
+## 7. Work packages (three independently testable members)
+
+Each work package has a named owner, explicit prerequisites, and a measurable completion check. Refine sizing after the contract-kit milestone. A member may use fixtures or fakes for unmet dependencies, but must replace them with contract tests at integration.
+
+### Member A: Identity, opportunities, applications, and platform foundation
+
+Owns `backend/app` foundation, auth/profile/opportunity/application/admin routes, corresponding backend tests, auth/opportunity frontend screens, migrations, and deployment/CI configuration.
+
+| ID | Work package | Needs | Done when |
+|---|---|---|---|
+| A1 | Confirm contract kit; split the current API entry point into config, DB, models, security, dependencies, rules, and routers; set up migrations and seed data | None; contract-kit review | App starts from the documented command; migration can create a clean local DB; existing health behavior remains tested |
+| A2 | Registration, verification, login, password hashing, token handling, profile CRUD, and self-registration role restrictions | A1, contract kit | Functional tests cover valid/invalid registration, verification, generic duplicate errors, login, profiles, and role checks; no production verification token is returned |
+| A3 | Server-side permission matrix and admin user management | A2 | Each protected route is tested for unauthenticated access and relevant roles; denied requests cannot mutate data |
+| A4 | Opportunity create/edit/publish/close/archive/search/detail, capacity validation, deadlines, versions, pagination | A1, contract kit | Lifecycle and filters pass API tests; archived items are excluded from default discovery; edits preserve application-time requirement versions |
+| A5 | Apply, withdraw, list/review applications, faculty decisions, capacity and timestamps | A2, A4 | Duplicate and closed/expired applications are rejected; withdrawal frees a place; only owning faculty can decide; acceptance cannot exceed capacity |
+| A6 | Team creation and membership-facing project endpoints; administrator/coordinator functions | A5, Member B contract | Accepted applications create expected members; membership checks are covered; admin/coordinator access matches the role matrix |
+| A7 | Shared frontend design tokens and shell; optional public landing page; auth, profile, opportunity discovery/detail/apply, applicant review and admin UI | A2-A6 API contracts | Shared theme tokens and shell are documented; any landing page uses only SRS-grounded content and a responsive, reduced-motion campus illustration; UI handles loading, empty, error, and denied states; controls are keyboard usable and carry `data-testid` attributes |
+| A8 | Docker/compose, environment example, CI, OpenAPI publication, deployment notes and TLS proxy configuration | A1; other streams provide runnable health checks | Clean compose startup, health checks, tests, and image build pass; secrets are external to source control |
+
+### Member B: Project workspace, resources, milestones, notifications, and LOR
+
+Owns project workspace routes/services/tests and their UI. Uses Member A's user/project/application models and the contract kit; does not change shared models without review.
+
+| ID | Work package | Needs | Done when |
+|---|---|---|---|
+| B1 | Resource metadata API and private storage adapter, size/type limits, update/delete, membership-checked upload/download | Contract kit, storage interface; fake storage may be used first | Unauthorized users cannot upload, list, update, delete, or download; files are not served from public/guessable URLs |
+| B2 | Milestones, tasks, status transitions, assignment and lead/faculty permissions | Project/member contract | Valid and invalid state changes are tested; non-members cannot read or mutate project work |
+| B3 | Shared overdue calculation and project activity feed with pagination | B2, activity-log contract | Dashboard and scheduled checks use the same overdue rule; feed is ordered and paginated, with membership enforcement |
+| B4 | Central activity logging for membership, resources, milestones, application and recommendation events | Contract kit; coordinate event names with A and C | Required changes create attributable, queryable activity records; tests verify actor, entity, project, action and time |
+| B5 | In-app notifications and reminders; optional SMTP adapter; scheduled worker with status re-check | Contract kit; notifier fake | In-app delivery works without SMTP; mail failure does not block requests; reminder job rechecks eligibility before sending |
+| B6 | Recommendation-letter issue/request/summary/decision workflow | A2, B4, notification service | Shared-history rule, duplicate pending request, performance summary, decisions, and notifications have API tests |
+| B7 | Project workspace, resources, milestones/tasks, activity, notification and LOR UI | B1-B6 contracts; shared visual tokens from Member A; fake responses until APIs are ready | Responsive UI uses shared tokens and covers loading, empty, failure and denied states; optional campus/progress visualization reflects backend-confirmed milestones and has an accessible list alternative; user-visible status and controls are tested |
+
+### Member C: Agent service, dashboards, safety, and quality
+
+Owns `agent_service/`, backend agent client/dashboard routes, agent/dashboard UI, cross-stream acceptance testing and the final verification guide.
+
+| ID | Work package | Needs | Done when |
+|---|---|---|---|
+| C1 | Internal agent API, service-token validation, request/response schemas, deterministic fake implementation | Contract kit | Requests without the service token fail; schema and timeout behavior have tests; service has no database driver or DB credentials |
+| C2 | Deterministic matching, concrete explanations, collaborator/resource suggestions | C1; A's skill/opportunity contracts; B's resource contract | Fixture tests verify scores, rankings, tie breaks and reason text; only platform-indexed/authorized data is considered |
+| C3 | Milestone inactivity/overdue and opportunity deadline/capacity alerts | C1; B's milestone contract; A's opportunity contract | Boundary tests cover due dates, completed milestones and deadline windows; alerts state advisory actions |
+| C4 | Backend agent client, data minimization, 10-second timeout, fail-safe unavailable response, backend-owned persistence and dismissal | C1-C3 | Agent failure does not break dashboards; only minimal structured data is sent; scans cannot mutate application status or memberships |
+| C5 | Student/faculty/coordinator dashboards and advisory agent panels | A and B API contracts; shared visual tokens from Member A; fake responses for parallel UI work | Role-specific payloads and four UI states are tested; recommendation panel failure is isolated from the rest of the dashboard; recommendations are real and remain advisory; shared visual tokens are used |
+| C6 | Safety and acceptance suite, basis-path and EP/BVA tests, Selenium tests, performance checks | Stable contracts; A/B/C endpoints available at integration | Agent safety invariant is verified; all acceptance scenarios are traceable; visual-token consistency, contrast, keyboard focus, responsive states, reduced motion, and truthful progress transitions are checked; performance is measured at 100 concurrent users against NFR-001/003 |
+| C7 | Setup/run/test documentation and final requirements traceability review | A8 and all stream test results | A new contributor can run the app and tests from README instructions; every FR has an implementation owner and passing verification or a documented gap |
+
+### Cross-stream handoffs
+
+| Producer | Consumer | Frozen handoff |
 |---|---|---|
-| B1 | Resource upload to private storage, size/type limits, download endpoint checking membership on **every** request, `PUT` update | FR-015 to 017, NFR-008 |
-| B2 | Milestones + tasks, lead/faculty rules, four status values | FR-018, 019 |
-| B3 | Overdue computation shared by dashboard and background job | FR-020 |
-| B4 | Central `log()` service covering auth events, application status, membership, milestones, agent recs; paginated activity feed | FR-021, 6.2 |
-| B5 | Notification service (in-app always, SMTP optional), scheduler (APScheduler worker) for reminders, re-check status before sending, `REMINDER_DAYS` env | FR-022 to 024 |
-| B6 | LOR: validate shared history or flag, unique pending request, performance summary, statuses + notifications | FR-036 to 038 |
-| B7 | UI: project workspace, resources, milestones/tasks, activity feed, notification bell, LOR screens | 3.1 |
-| B8 | User documentation: student/faculty guide, administrator instructions | 2.6 |
+| A | B | User IDs/roles, accepted application IDs, project creation payload, project-member roles, auth dependency |
+| A | C | Student skills/interests, opportunity skills/domain/deadline/capacity, application and project identifiers |
+| B | C | Milestone status/target/activity timestamps, resource metadata and visibility rules, activity events |
+| C | A and B | Agent request/response schemas, timeout/unavailable behavior, recommendation IDs/reasons/status; agent has no write path to academic decisions |
 
-### Member C: Agent, dashboards, quality (SRS 4.7, 4.8, 5.1, 5.2, 5.4, App. G)
-| ID | Task | FR/NFR |
-|---|---|---|
-| C1 | Agent service container, internal API, service-token auth, request schema validation | 2.1, 3.3 |
-| C2 | Matching + reasons, collaborators, resource suggestions (platform-indexed only) | FR-025 to 028 |
-| C3 | Overdue/inactive detection with recommended action; inactive-opportunity alert | FR-029, 035 |
-| C4 | Backend agent client: 10 s timeout, graceful "unavailable", backend persists recommendations, dismissal, data minimisation | FR-030, 031, NFR-002/009 |
-| C5 | Dashboards API + UI with the four screen states | FR-032 to 034 |
-| C6 | **Safety test**: agent scan/run leaves `applications.status` and `project_members` unchanged; static check that agent_service has no DB driver | FR-030, 5.2 |
-| C7 | **QA:** Part II experiment, acceptance scenarios (App. G), load test (100 users, p95 < 2 s), Selenium suite on our UI | NFR-001/003/004 |
-| C8 | README, setup/run/test guide, API docs page, final traceability check (App. E) | 2.6 |
+## 8. Schedule and integration milestones
 
-### Integration points
-A to B: `Application.Accepted` then `POST /projects` creates members that B's workspace uses. A to C: profile skills and opportunity skills feed matching. B to C: milestone status and activity timestamps feed progress detection. Freeze these field names in week 1.
+The schedule is a four-week target, not a promise that work must be serial. All streams begin with fixtures and contracts, then integrate only against the milestone gates below.
 
-## 8. Schedule (4 weeks)
-
-| Week | Member A | Member B | Member C | Exit criterion |
+| Milestone | Member A | Member B | Member C | Exit gate |
 |---|---|---|---|---|
-| 0 (2 days) | Module split, Postgres, CI skeleton | Storage + notifier interfaces | Agent service skeleton, test harness | `docker compose up` runs api + db + agent |
-| 1 | A2, A3, A4, auth UI | B1, B2 | C1, C2, experiment white-box + black-box tests | login, profile, opportunity CRUD, resources, matching demo |
-| 2 | A5, A6, opportunity UI | B3, B4, B5, workspace UI | C3, C4, student dashboard, Selenium on OrangeHRM/SelectorsHub | apply > decide > team > milestone > reminder end to end |
-| 3 | A7, A8, applicant review UI | B6, notification UI, LOR UI | C5 (all dashboards), C6 | all FR-001..038 functional |
-| 4 | A10, security hardening | B8, bug bash | C7 (acceptance, load), C8 | all High and Medium tests pass, docs done, demo |
+| M0 — Contract kit (first 2 days) | Draft API/data contracts; scaffold backend modules and migration path | Review project/resource/milestone/notification fields; define storage/notifier interfaces | Review agent/dashboard payloads; provide fake agent schema and test fixtures | Versioned contracts, initial OpenAPI, shared status/role enums, representative fixtures, local test commands agreed |
+| M1 — Foundation (week 1) | Auth, profiles, role checks, DB/migrations, CI baseline | Storage/notifier interfaces and project workspace skeleton against fakes | Agent skeleton/token auth, pure scoring/rule tests, test harness | API health and auth work; all three streams run isolated tests; no downstream stream blocked on live integrations |
+| M2 — Core workflows (week 2) | Opportunity lifecycle and applications; first auth/opportunity UI | Resources, milestones/tasks, project activity and notifications | Matching/progress rules, agent client, student dashboard | Apply → faculty decision → project → milestone flow works in integration; agent remains advisory and can fail independently |
+| M3 — Complete feature slices (week 3) | Team creation, admin/coordinator, applicant review UI | LOR workflow, reminders, project/notification/LOR UI | Dashboards, recommendations and alert panel, safety tests | Functional coverage across FR-001..038 with known gaps explicitly recorded; role and membership checks pass |
+| M4 — Release hardening (week 4) | Compose/deploy, OpenAPI, security fixes, migration verification | Bug fixes, user guides, notification/storage checks | Acceptance/Selenium/performance tests, traceability report | CI and acceptance suite pass; private-file and agent-safety checks pass; README supports a clean setup |
 
 ## 9. Cross-cutting requirements
 
@@ -259,10 +373,62 @@ A to B: `Application.Accepted` then `POST /projects` creates members that B's wo
 All 38 requirements are covered. Business rules: BR-001 (A5), BR-002 (A6, `rules.py`), BR-003 (A6 + C6), BR-004 (B1), BR-005 (C6), BR-006 (A7, no hard limit).
 
 ## 11. Working agreements
-- Branch per task id (`a5-opportunity-versions`), PR reviewed by one other member, commit messages cite the FR id.
-- CI must pass (`smoke_test.py`, `experiment/test_*.py`, linters) before merge.
-- Defects are filed as issues referencing the FR id (SRS 6.4).
-- Any agent-related PR is reviewed against FR-030 first.
+- Branch per work-package ID (for example `a4-opportunity-lifecycle`); keep PRs scoped to the owning stream and cite relevant FR IDs.
+- Every PR has a reviewer from a different stream when it changes a shared contract, authorization boundary, or integration surface.
+- CI must run the backend unit/API tests, contract tests, Part II experiment tests, and configured linters; Selenium against third-party demo sites is an explicitly separate/manual job.
+- Defects reference FR IDs and include a reproducible test or acceptance case.
+- Contract changes update OpenAPI/fixtures and the change record in the same PR.
+- Any agent-related PR is reviewed against FR-030/BR-005 and reruns the agent safety invariant.
+
+## 12. Milestone integration checks
+
+Integration happens at M0-M4 rather than by merging unfinished work continuously.
+
+| Gate | Required checks |
+|---|---|
+| M0 contract gate | OpenAPI parses; role/status names and error schema are consistent; example requests/responses validate; each stream has a runnable fake or fixture |
+| M1 foundation gate | Clean local database migration; health endpoint; registration/login/role tests; CI runs the same commands documented in README |
+| M2 workflow gate | Published opportunity can be found and applied to; faculty decision creates valid accepted state; project membership controls access; milestone changes are logged |
+| M3 feature gate | All member endpoints use shared auth and schemas; in-app notification, LOR, dashboard, agent failure, and dismissal paths pass integration tests |
+| M4 release gate | Acceptance and safety suites pass; private downloads are membership-checked per request; no agent writes academic decisions; deployment configuration has no committed secrets |
+
+For any failing gate, record the failing FR, owner, reproducer, and next decision. Do not mark a requirement complete based only on a stub or UI mock.
+
+## 13. Acceptance checklist
+
+- [ ] All FR-001 to FR-038 have an owner, API/UI implementation status, and test evidence in section 10.
+- [ ] Every protected route enforces authentication, server-side role checks, and project membership where required.
+- [ ] Opportunity and application rules pass boundary and state-transition tests, including capacity and deadline edges.
+- [ ] Private resources are stored outside public web roots and authorization is checked for each read/download.
+- [ ] Agent service has no database access; agent timeouts are bounded; recommendations cannot change applications or project membership.
+- [ ] Every screen has loading, empty, error/unavailable, and access-denied states.
+- [ ] Search/filter UI does not reload the page; tablet-width and keyboard-access checks are completed.
+- [ ] The documented ivory, deep-teal, sage, lime and restrained orange palette matches the supplied ResearchBridge UI reference.
+- [ ] Every ResearchBridge screen consumes the same centralized design tokens; no feature introduces a conflicting palette.
+- [ ] Sidebar/navigation, page backgrounds, cards/forms, buttons, inputs, badges and status indicators use the specified colour roles consistently.
+- [ ] Typography, contrast, spacing, borders and surfaces remain readable and visually balanced across long-form content and dense data views.
+- [ ] Desktop, tablet and mobile layouts preserve the visual language, navigation, status labels, warnings and essential interactions.
+- [ ] Success, errors, warnings and project/task/application status are not communicated by colour alone; keyboard focus, button states and form validation are accessible.
+- [ ] If a public landing page exists, its miniature-campus illustration is responsive, SRS-grounded, optimized and reduced-motion friendly; it does not obstruct content or actions.
+- [ ] If a campus/map progress visualization is used, its locations and states reflect backend-confirmed milestones, and a fully usable accessible milestone list remains available.
+- [ ] Agent processing/recommendation states reflect real API activity and results; no unsupported chat, graph, autonomous action or fabricated AI behavior is presented.
+- [ ] Motion is restrained on routine screens and respects `prefers-reduced-motion`; no unnecessary 3D/WebGL or animation dependency is introduced.
+- [ ] Existing ResearchBridge features, SRS requirements, architecture, technology choices and work packages remain unchanged by visual styling.
+- [ ] No unrelated DataScout or dataset-discovery requirements, or contradictory visual palette instructions, are introduced.
+- [ ] CI, migrations, Docker Compose, API docs, and clean setup instructions work from a fresh checkout.
+- [ ] NFR-001 and NFR-003 are verified with recorded measurements rather than assumed from configuration.
+
+## 14. Risks and open decisions
+
+| Risk / decision | Impact | Mitigation / owner |
+|---|---|---|
+| Current runnable backend is only a health-check scaffold while the fuller prototype is in `docs/` | Duplicated or inconsistent behavior | Member A identifies reusable logic, ports it into tested backend modules, and does not treat the docs prototype as production code |
+| Three streams need common user/project/status fields | Integration rework | Freeze minimum API schemas and fixtures at M0; add contract tests for every consumer |
+| PostgreSQL, migrations, mail, storage and agent provider increase setup burden | Contributors cannot run feature tests locally | Keep SQLite/test fakes available for unit/API tests; production-like Compose profile verifies PostgreSQL and service wiring |
+| External email, file, or agent service is unavailable | Main workflows become unreliable | In-app notifications are mandatory; isolate email failures; provide deterministic agent/storage fakes and explicit unavailable states |
+| Resource suggestions can expose another project's private data | Privacy/access-control failure | Only return resources visible to the requesting user or explicitly public; test cross-project access denial |
+| Time is insufficient for the entire SRS | Partial feature delivery | Prioritize auth/RBAC, opportunity/application workflow, project membership/resources, and agent safety before optional email and visual polish; report incomplete FRs honestly |
+| Domain policy, hosting details and optional integrations are undecided | Rework or accidental scope growth | Keep the decisions in section 0.3/0.4; change them by team agreement and update tests/documentation |
 
 ---
 
@@ -696,7 +862,7 @@ pytest -v selenium_orangehrm_login_ep.py selenium_selectorshub_form.py
 ```
 
 #### C.4 Selenium on our own platform (after Member A's UI exists)
-Reuse the same pattern with `By.CSS_SELECTOR, "[data-testid='login-email']"` and the partition tables in section B (password 7/8/9 characters, capacity 0/1/2). Add `tests/ui/` and run it in CI against `docker compose up`.
+Reuse the same pattern with `By.CSS_SELECTOR, "[data-testid='login-email']"` and the partition tables in section B (password 7/8/9 characters, capacity 0/1/2). Add `tests/ui/` and run it in CI against `docker compose up`. Include a UI regression checklist for the shared palette tokens and semantic status labels, visible keyboard focus and form errors, and desktop/tablet/mobile layouts; verify text contrast against the actual rendered surfaces and confirm that narrow layouts retain navigation, warnings and key actions.
 
 ### Execution status (read before submitting)
 | Suite | Run here? | Result |
