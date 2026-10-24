@@ -59,3 +59,4 @@ def verify_token_get_user_id(token: str) -> Optional[int]:
         return int(user_id_str)
     except Exception:
         return None
+

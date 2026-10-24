@@ -286,3 +286,4 @@ class ActivityLog(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
     action = Column(String(255), nullable=False)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+

@@ -3,7 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.db import init_db
-from app.routers import agent, dashboards
+from app.routers import (
+    agent,
+    applications,
+    auth,
+    dashboards,
+    milestones,
+    opportunities,
+    projects,
+)
 
 
 @asynccontextmanager
@@ -20,7 +28,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Include routers
+# Include routers (SRS sections 4.1 to 4.8)
+app.include_router(auth.router)
+app.include_router(opportunities.router)
+app.include_router(applications.router)
+app.include_router(projects.router)
+app.include_router(milestones.router)
 app.include_router(dashboards.router)
 app.include_router(agent.router)
 

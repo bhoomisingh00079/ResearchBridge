@@ -287,3 +287,4 @@ def get_coordinator_dashboard(
             "total_applications": total_apps,
         },
     }
+

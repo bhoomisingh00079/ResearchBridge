@@ -71,3 +71,4 @@ def make_user(db, email, role, name="Test User", status="Active"):
 def make_auth_header(user):
     token = create_token_for_user(user.id)
     return {"Authorization": f"Bearer {token}"}
+

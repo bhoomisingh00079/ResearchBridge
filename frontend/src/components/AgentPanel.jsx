@@ -172,3 +172,4 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
     </div>
   );
 }
+

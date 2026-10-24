@@ -254,3 +254,4 @@ def persist_recommendations(
     for rec in saved_records:
         db.refresh(rec)
     return saved_records
+

@@ -200,3 +200,4 @@ export default function FacultyDashboard({ token }) {
     </div>
   );
 }
+
