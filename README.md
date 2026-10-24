@@ -205,3 +205,4 @@ pytest -v experiment/selenium_orangehrm_login_ep.py experiment/selenium_selector
 - **NFR-005 (Credential Security)**: PBKDF2-HMAC-SHA256 salted hashes with 100,000 iterations; passwords never stored in plaintext.
 - **NFR-006 & NFR-007 (Authorization)**: Server-side token validation and explicit role checks on every non-public route.
 - **NFR-009 (Data Minimisation)**: Agent service requests contain only non-identifying structured attributes.
+
