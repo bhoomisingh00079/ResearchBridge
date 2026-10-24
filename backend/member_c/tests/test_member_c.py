@@ -1,14 +1,22 @@
 import asyncio
 import json
+import sys
+from pathlib import Path
 
 import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from backend.member_c.agent_client import AgentClient
-from backend.member_c.dashboard import create_dashboard_router
-from backend.member_c.recommendations import InMemoryRecommendationStore, Recommendation
+# CI runs pytest with backend/ as its working directory, while local runs may
+# start at the repository root. Add the backend package root for both layouts.
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from member_c.agent_client import AgentClient
+from member_c.dashboard import create_dashboard_router
+from member_c.recommendations import InMemoryRecommendationStore, Recommendation
 
 
 def test_agent_client_allowlists_fields_and_returns_unavailable_on_error():
