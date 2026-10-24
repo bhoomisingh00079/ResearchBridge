@@ -181,6 +181,85 @@ Scoring (deterministic, explainable, FR-025/026): `score = 10*|shared skills| + 
 
 Every screen implements the four states: loading, empty, error/unavailable, access-denied (visually distinct from empty). Accessibility: contrast, keyboard navigation, labels, tablet-width layout. **Testability convention:** every interactive element has `data-testid="<screen>-<element>"` so the Selenium suite (Part II) does not depend on CSS.
 
+### 6.1 Shared visual design system (ResearchBridge UI reference)
+
+Use the supplied ResearchBridge UI reference as the source of truth for the visual direction: calm, academic, nature-inspired, with deep-teal navigation, warm ivory page surfaces, muted sage accents, restrained lime highlights, and occasional orange emphasis. A miniature research-city motif may make the public landing page and milestone/progress experience distinctive, but must not replace platform content or turn routine screens into illustrations. The HEX values below are approximate design tokens based on the reference, not SRS-mandated values. Keep them centralized as CSS custom properties or equivalent theme tokens; components must consume tokens rather than introduce one-off palette values.
+
+| Token | Approximate HEX | Intended use |
+|---|---|---|
+| `--color-teal` | `#123F3D` | Primary sidebar/navigation, primary buttons, important links and interactive elements |
+| `--color-teal-dark` | `#0B302F` | Dark navigation surfaces, hover/pressed states, strong emphasis |
+| `--color-ivory` | `#F7F5EC` | Main page background and large content areas |
+| `--color-cream` | `#FCFBF6` | Cards, forms, dialogs and elevated content surfaces |
+| `--color-sage` | `#7FA99B` | Secondary emphasis, active navigation details and subtle decorative elements |
+| `--color-sage-pale` | `#E4EDE4` | Selected navigation backgrounds, chips and secondary-state surfaces |
+| `--color-lime` | `#B9DD58` | High-priority calls to action, positive indicators and selected highlights; use sparingly, typically with deep-teal text |
+| `--color-orange` | `#F28C45` | Warnings and occasional small accents; never use as a universal status or failure colour |
+| `--color-text` | `#183C3A` | Headings and primary content |
+| `--color-text-muted` | `#607875` | Descriptions, metadata and supporting text |
+| `--color-border` | `#D7DED5` | Thin card outlines, dividers and input borders |
+| `--color-white` | `#FFFFFF` | Clean input surfaces and selected elements where useful |
+| `--color-error` | `#E76F51` | Error text, error icons and failure indicators, always accompanied by a clear label/message |
+
+#### Application across screens
+
+| Surface / feature | Design-token guidance |
+|---|---|
+| Landing page, hero and footer | Ivory page canvas, teal navigation and headings, cream content surfaces; reserve lime for the primary "Get started" action and use sage/orange only as restrained supporting accents. A polished, lightweight isometric miniature research campus may serve as the main visual showcase, supporting the platform's actual student/faculty research features without overwhelming the headline, calls to action or content. |
+| Login, registration and verification | Ivory surroundings, cream form surface, teal submit/action controls, clear text labels and inline validation; use error red for invalid fields and messages without relying on colour alone. |
+| Dashboards, statistics and deadlines | Ivory background and cream statistics/work panels, teal headings, sage for secondary data emphasis, lime for a small number of positive/high-priority indicators, and orange for upcoming or cautionary deadlines. Keep chart/status labels visible. |
+| Researcher discovery, profiles and collaboration requests | Use consistent teal actions and navigation, pale-sage chips for skills/interests, muted metadata, and cream profile/result surfaces. Preserve readable biography and research text widths. |
+| Research projects, workspaces, tasks, discussions and member lists | Keep the workspace neutral and content-first; use teal for active tabs/actions, sage for secondary structure, and consistent status labels for tasks and projects. Do not assign a unique saturated background to each panel. |
+| Messages, notifications, invitations and activity feeds | Cream/white reading surfaces, thin borders, teal links/actions; use lime only for unread or positive emphasis, orange for warnings, and explicit text for invitation/activity state. |
+| Search, filters, tags, badges, forms, tables and dialogs | Teal focus/primary actions, pale-sage selected filters, sage skill tags, cream/white form surfaces, subtle borders and aligned table data. Use shared control states and avoid nested cards. |
+| Empty, error, loading, warning and success states | Keep state layouts consistent across screens. Provide concise text and a meaningful icon/label; use semantic tokens for errors/warnings/success, and skeletons or progress indicators for loading. |
+| Mobile and tablet navigation | Preserve the same tokens and hierarchy. Collapse the desktop sidebar into an accessible menu or compact navigation; retain access to every destination, visible active state, and clear focus/pressed states. Do not hide warnings, task status, or essential content. |
+
+#### Design and accessibility rules
+
+- Maintain a calm, premium academic atmosphere with moderate corner radii, thin consistent borders, restrained shadows, practical whitespace and clear typographic hierarchy.
+- Use a readable sans-serif for interface text; an optional restrained serif may be used for selected editorial headings only. Long abstracts, biographies and project descriptions must remain comfortable to read.
+- Prefer flat, structured surfaces. Avoid excessive gradients, neon colours, heavy shadows, glassmorphism, decorative imagery that competes with research content, and a different colour for every card.
+- Reserve substantial custom illustration and distinctive motion for the landing-page campus and a progress visualization tied to actual milestone data. All other screens use the shared, practical application layout; do not add city artwork to every page.
+- Build any campus illustration with optimized SVG, layered static assets, or CSS before considering a new dependency. Avoid heavy 3D/WebGL or overlapping animation libraries. Respect `prefers-reduced-motion`; replace nonessential movement with static states or simple transitions.
+- Use deep teal for primary navigation and actions, ivory for page backgrounds, cream for forms/cards, sage for secondary emphasis, lime sparingly for important/positive highlights, and orange only for limited warning emphasis.
+- Keep semantic status colours distinct from decoration. Pair every success, error, warning, application, project, task and agent-advisory status with visible text and/or an accessible icon; colour alone never communicates meaning.
+- Text, controls, borders and focus indicators must meet WCAG 2.1 AA contrast requirements for their use. Verify contrast for actual foreground/background token pairs; adjust foreground or surface treatment where an approximate palette pairing is insufficient.
+- All controls must have visible keyboard focus and discernible hover, pressed, selected, disabled and loading states. Forms need associated labels, keyboard-operable validation, and errors that identify the affected field and how to correct it.
+- Test desktop, tablet and mobile breakpoints. Responsive layouts must preserve navigation, readable line lengths, table/result associations, status labels, warnings, and access to all actions.
+- Use the tokens consistently across all routes and roles; screen-specific components may arrange content differently but must not establish competing palettes.
+
+### 6.2 Signature experiences and implementation boundaries
+
+The visual treatment below is a presentation layer for ResearchBridge requirements, not permission to expand the product scope. Existing SRS behavior, API contracts and truthful backend state remain authoritative.
+
+#### Public landing page — miniature research city
+
+- If the application includes a public landing page, use it as the primary visual showcase: an elegant, lightweight isometric campus may include a library, research laboratory, collaboration hub, observatory, paths, trees or small researcher figures where appropriate.
+- Introduce the campus with restrained entrance/reveal motion and optional subtle section transitions. Keep the headline, concise SRS-grounded feature description, navigation and calls to action prominent and usable.
+- Explain only supported ResearchBridge capabilities (such as opportunity discovery, applications, project milestones and advisory recommendations). Do not imply unsupported functionality or use fabricated metrics.
+- Keep the illustration optimized, responsive, accessible as decorative content when appropriate, and subordinate to the page's purpose. Provide a static/reduced-motion rendering.
+
+#### Project milestones and research progress — progress-linked campus
+
+- Use a stylized campus/map as an optional central visualization within the existing project workspace and milestone experience (FR-018 to FR-020); locations may represent real projects or milestones only when the corresponding data exists.
+- Distinguish completed, active, upcoming and unavailable states using the shared semantic status treatments, visible labels and accessible icons—not color alone.
+- Keep a conventional milestone list or detail panel available as the primary accessible alternative. The visualization must not be required to read, update or understand progress.
+- Derive every state from backend-confirmed project/milestone data. Animate a completion only after a successful response confirms it; on failure, retain the prior state and show the actual error.
+- Use a restrained progress-linked highlight or completion response rather than game mechanics, points or fabricated progress. Provide loading, empty and error states.
+
+#### Agent recommendations — advisory, restrained
+
+- Keep the agent experience aligned with the existing advisory recommendation and alert workflow (FR-025 to FR-031). Make reasons, dismiss controls and unavailable/error states clear.
+- Use a clean panel within the supported dashboard or project experience. A subtle processing indicator is appropriate only during a real pending request; stop it on success, failure or timeout.
+- Do not add a chat interface, conversation history, connected concept/source graph, generated answer workflow or standalone agent page unless an approved API contract and requirement support it. Never fabricate recommendations or imply that agent output changes academic decisions.
+
+#### Remaining platform screens
+
+- Keep authentication/onboarding, dashboards, opportunity search and detail, applicant review, profiles where supported, project workspace, resources, tasks, discussions, messages/notifications, admin/coordinator and LOR screens conventional and functional.
+- Use shared navigation, page headers, forms, tables, status labels and reusable components. Prioritize information density, readable content, clear actions and actual workflows over decoration.
+- Do not create new pages merely because a visual concept suggests them; implement only screens/features required by the SRS or approved API contracts.
+
 ## 7. Work packages (three independently testable members)
 
 Each work package has a named owner, explicit prerequisites, and a measurable completion check. Refine sizing after the contract-kit milestone. A member may use fixtures or fakes for unmet dependencies, but must replace them with contract tests at integration.
@@ -197,7 +276,7 @@ Owns `backend/app` foundation, auth/profile/opportunity/application/admin routes
 | A4 | Opportunity create/edit/publish/close/archive/search/detail, capacity validation, deadlines, versions, pagination | A1, contract kit | Lifecycle and filters pass API tests; archived items are excluded from default discovery; edits preserve application-time requirement versions |
 | A5 | Apply, withdraw, list/review applications, faculty decisions, capacity and timestamps | A2, A4 | Duplicate and closed/expired applications are rejected; withdrawal frees a place; only owning faculty can decide; acceptance cannot exceed capacity |
 | A6 | Team creation and membership-facing project endpoints; administrator/coordinator functions | A5, Member B contract | Accepted applications create expected members; membership checks are covered; admin/coordinator access matches the role matrix |
-| A7 | Auth, profile, opportunity discovery/detail/apply, applicant review and admin UI | A2-A6 API contracts | UI handles loading, empty, error, and denied states; controls are keyboard usable and carry `data-testid` attributes |
+| A7 | Shared frontend design tokens and shell; optional public landing page; auth, profile, opportunity discovery/detail/apply, applicant review and admin UI | A2-A6 API contracts | Shared theme tokens and shell are documented; any landing page uses only SRS-grounded content and a responsive, reduced-motion campus illustration; UI handles loading, empty, error, and denied states; controls are keyboard usable and carry `data-testid` attributes |
 | A8 | Docker/compose, environment example, CI, OpenAPI publication, deployment notes and TLS proxy configuration | A1; other streams provide runnable health checks | Clean compose startup, health checks, tests, and image build pass; secrets are external to source control |
 
 ### Member B: Project workspace, resources, milestones, notifications, and LOR
@@ -212,7 +291,7 @@ Owns project workspace routes/services/tests and their UI. Uses Member A's user/
 | B4 | Central activity logging for membership, resources, milestones, application and recommendation events | Contract kit; coordinate event names with A and C | Required changes create attributable, queryable activity records; tests verify actor, entity, project, action and time |
 | B5 | In-app notifications and reminders; optional SMTP adapter; scheduled worker with status re-check | Contract kit; notifier fake | In-app delivery works without SMTP; mail failure does not block requests; reminder job rechecks eligibility before sending |
 | B6 | Recommendation-letter issue/request/summary/decision workflow | A2, B4, notification service | Shared-history rule, duplicate pending request, performance summary, decisions, and notifications have API tests |
-| B7 | Project workspace, resources, milestones/tasks, activity, notification and LOR UI | B1-B6 contracts; fake responses until APIs are ready | Responsive UI covers loading, empty, failure and denied states; user-visible status and accessible controls are tested |
+| B7 | Project workspace, resources, milestones/tasks, activity, notification and LOR UI | B1-B6 contracts; shared visual tokens from Member A; fake responses until APIs are ready | Responsive UI uses shared tokens and covers loading, empty, failure and denied states; optional campus/progress visualization reflects backend-confirmed milestones and has an accessible list alternative; user-visible status and controls are tested |
 
 ### Member C: Agent service, dashboards, safety, and quality
 
@@ -224,8 +303,8 @@ Owns `agent_service/`, backend agent client/dashboard routes, agent/dashboard UI
 | C2 | Deterministic matching, concrete explanations, collaborator/resource suggestions | C1; A's skill/opportunity contracts; B's resource contract | Fixture tests verify scores, rankings, tie breaks and reason text; only platform-indexed/authorized data is considered |
 | C3 | Milestone inactivity/overdue and opportunity deadline/capacity alerts | C1; B's milestone contract; A's opportunity contract | Boundary tests cover due dates, completed milestones and deadline windows; alerts state advisory actions |
 | C4 | Backend agent client, data minimization, 10-second timeout, fail-safe unavailable response, backend-owned persistence and dismissal | C1-C3 | Agent failure does not break dashboards; only minimal structured data is sent; scans cannot mutate application status or memberships |
-| C5 | Student/faculty/coordinator dashboards and advisory agent panels | A and B API contracts; fake responses for parallel UI work | Role-specific payloads and four UI states are tested; recommendation panel failure is isolated from the rest of the dashboard |
-| C6 | Safety and acceptance suite, basis-path and EP/BVA tests, Selenium tests, performance checks | Stable contracts; A/B/C endpoints available at integration | Agent safety invariant is verified; all acceptance scenarios are traceable; performance is measured at 100 concurrent users against NFR-001/003 |
+| C5 | Student/faculty/coordinator dashboards and advisory agent panels | A and B API contracts; shared visual tokens from Member A; fake responses for parallel UI work | Role-specific payloads and four UI states are tested; recommendation panel failure is isolated from the rest of the dashboard; recommendations are real and remain advisory; shared visual tokens are used |
+| C6 | Safety and acceptance suite, basis-path and EP/BVA tests, Selenium tests, performance checks | Stable contracts; A/B/C endpoints available at integration | Agent safety invariant is verified; all acceptance scenarios are traceable; visual-token consistency, contrast, keyboard focus, responsive states, reduced motion, and truthful progress transitions are checked; performance is measured at 100 concurrent users against NFR-001/003 |
 | C7 | Setup/run/test documentation and final requirements traceability review | A8 and all stream test results | A new contributor can run the app and tests from README instructions; every FR has an implementation owner and passing verification or a documented gap |
 
 ### Cross-stream handoffs
@@ -324,6 +403,18 @@ For any failing gate, record the failing FR, owner, reproducer, and next decisio
 - [ ] Agent service has no database access; agent timeouts are bounded; recommendations cannot change applications or project membership.
 - [ ] Every screen has loading, empty, error/unavailable, and access-denied states.
 - [ ] Search/filter UI does not reload the page; tablet-width and keyboard-access checks are completed.
+- [ ] The documented ivory, deep-teal, sage, lime and restrained orange palette matches the supplied ResearchBridge UI reference.
+- [ ] Every ResearchBridge screen consumes the same centralized design tokens; no feature introduces a conflicting palette.
+- [ ] Sidebar/navigation, page backgrounds, cards/forms, buttons, inputs, badges and status indicators use the specified colour roles consistently.
+- [ ] Typography, contrast, spacing, borders and surfaces remain readable and visually balanced across long-form content and dense data views.
+- [ ] Desktop, tablet and mobile layouts preserve the visual language, navigation, status labels, warnings and essential interactions.
+- [ ] Success, errors, warnings and project/task/application status are not communicated by colour alone; keyboard focus, button states and form validation are accessible.
+- [ ] If a public landing page exists, its miniature-campus illustration is responsive, SRS-grounded, optimized and reduced-motion friendly; it does not obstruct content or actions.
+- [ ] If a campus/map progress visualization is used, its locations and states reflect backend-confirmed milestones, and a fully usable accessible milestone list remains available.
+- [ ] Agent processing/recommendation states reflect real API activity and results; no unsupported chat, graph, autonomous action or fabricated AI behavior is presented.
+- [ ] Motion is restrained on routine screens and respects `prefers-reduced-motion`; no unnecessary 3D/WebGL or animation dependency is introduced.
+- [ ] Existing ResearchBridge features, SRS requirements, architecture, technology choices and work packages remain unchanged by visual styling.
+- [ ] No unrelated DataScout or dataset-discovery requirements, or contradictory visual palette instructions, are introduced.
 - [ ] CI, migrations, Docker Compose, API docs, and clean setup instructions work from a fresh checkout.
 - [ ] NFR-001 and NFR-003 are verified with recorded measurements rather than assumed from configuration.
 
@@ -771,7 +862,7 @@ pytest -v selenium_orangehrm_login_ep.py selenium_selectorshub_form.py
 ```
 
 #### C.4 Selenium on our own platform (after Member A's UI exists)
-Reuse the same pattern with `By.CSS_SELECTOR, "[data-testid='login-email']"` and the partition tables in section B (password 7/8/9 characters, capacity 0/1/2). Add `tests/ui/` and run it in CI against `docker compose up`.
+Reuse the same pattern with `By.CSS_SELECTOR, "[data-testid='login-email']"` and the partition tables in section B (password 7/8/9 characters, capacity 0/1/2). Add `tests/ui/` and run it in CI against `docker compose up`. Include a UI regression checklist for the shared palette tokens and semantic status labels, visible keyboard focus and form errors, and desktop/tablet/mobile layouts; verify text contrast against the actual rendered surfaces and confirm that narrow layouts retain navigation, warnings and key actions.
 
 ### Execution status (read before submitting)
 | Suite | Run here? | Result |
