@@ -33,3 +33,26 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+  agent-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install agent service dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agent_service/requirements.txt
+
+      - name: Run agent service tests
+        env:
+          AGENT_SERVICE_TOKEN: test-secret-token
+        run: |
+          python -m pytest agent_service/tests/ -v
