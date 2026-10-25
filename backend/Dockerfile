@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/main.py ./main.py
 COPY backend/app ./app
+COPY backend/member_b.py backend/project_workspace.py backend/notifier.py ./
+COPY backend/static ./static
 COPY backend/alembic.ini ./backend/alembic.ini
 COPY backend/migrations ./backend/migrations
 

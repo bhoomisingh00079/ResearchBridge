@@ -2,6 +2,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
+try:
+    from member_b import router as member_b_router
+except ImportError:
+    from ..member_b import router as member_b_router
 
 from .config import get_settings
 from .db import Base, engine
@@ -31,6 +37,9 @@ def create_app() -> FastAPI:
     application.add_middleware(CORSMiddleware, allow_origins=list(settings.frontend_origins),
                                allow_credentials=False, allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                                allow_headers=["Authorization", "Content-Type"])
+    # Member B's paths precede the earlier workspace prototypes where paths
+    # overlap, so membership-checked handlers remain the active endpoints.
+    application.include_router(member_b_router)
     application.include_router(auth.router)
     application.include_router(opportunities.router)
     application.include_router(applications.router)
@@ -39,6 +48,27 @@ def create_app() -> FastAPI:
     application.include_router(milestones.router)
     application.include_router(dashboards.router)
     application.include_router(agent.router)
+
+    static_dir = Path(__file__).resolve().parent.parent / "static"
+
+    @application.get("/workspace", include_in_schema=False)
+    def project_workspace_page():
+        page = static_dir / "project-workspace.html"
+        if not page.is_file():
+            from fastapi import HTTPException
+            raise HTTPException(404, "Project workspace UI is not installed")
+        return FileResponse(page)
+
+    @application.get("/workspace/{asset_name}", include_in_schema=False)
+    def project_workspace_asset(asset_name: str):
+        if asset_name not in {"project-workspace.css", "project-workspace.js"}:
+            from fastapi import HTTPException
+            raise HTTPException(404, "Asset not found")
+        asset = static_dir / asset_name
+        if not asset.is_file():
+            from fastapi import HTTPException
+            raise HTTPException(404, "Asset not found")
+        return FileResponse(asset)
 
     @application.get("/")
     def root():
