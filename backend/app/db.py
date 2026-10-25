@@ -1,27 +1,41 @@
-"""Database connection and session factory (SRS 6.1, PLAN Section 3)."""
-from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from collections.abc import Generator
 
-from app.config import DATABASE_URL
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-# For SQLite, check_same_thread=False is needed for multi-threaded test clients
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+from .config import get_settings
 
 
-def get_db():
-    """FastAPI dependency for obtaining a database session."""
-    db = SessionLocal()
+class Base(DeclarativeBase):
+    pass
+
+
+def _make_engine():
+    url = get_settings().database_url
+    options = {"pool_pre_ping": True}
+    if url.startswith("sqlite"):
+        options["connect_args"] = {"check_same_thread": False}
+    return create_engine(url, **options)
+
+
+engine = _make_engine()
+if get_settings().database_url.startswith("sqlite"):
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(connection, _record) -> None:
+        cursor = connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def get_db() -> Generator[Session, None, None]:
+    session = SessionLocal()
     try:
-        yield db
+        yield session
     finally:
-        db.close()
+        session.close()
 
 
-def init_db():
-    """Initialise tables."""
+def init_db() -> None:
+    """Compatibility helper for existing API and agent tests."""
     Base.metadata.create_all(bind=engine)
-

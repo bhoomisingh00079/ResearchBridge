@@ -1,24 +1,55 @@
 services:
-  backend:
-    build:
-      context: ./backend
-    ports:
-      - "8000:8000"
+  db:
+    image: postgres:16-alpine
     environment:
-      - PORT=8000
-      - AGENT_SERVICE_URL=http://agent:8100
-      - AGENT_SERVICE_TOKEN=${AGENT_SERVICE_TOKEN:-dev-secret-token}
+      POSTGRES_DB: researchbridge
+      POSTGRES_USER: researchbridge
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-researchbridge-only}
+    volumes:
+      - researchbridge-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U researchbridge -d researchbridge"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+psycopg://researchbridge:${POSTGRES_PASSWORD:-local-researchbridge-only}@db:5432/researchbridge
+      SECRET_KEY: ${SECRET_KEY:-}
+      ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-ves.ac.in}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-https://localhost,http://localhost:5173}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-researchbridge@localhost}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://localhost}
+      AGENT_SERVICE_URL: ${AGENT_SERVICE_URL:-http://agent:8100}
+      AGENT_SERVICE_TOKEN: ${AGENT_SERVICE_TOKEN:-dev-secret-token}
+      AGENT_TIMEOUT_SECONDS: ${AGENT_TIMEOUT_SECONDS:-10}
+      INACTIVE_THRESHOLD_DAYS: ${INACTIVE_THRESHOLD_DAYS:-7}
+      DEADLINE_WARNING_DAYS: ${DEADLINE_WARNING_DAYS:-7}
     depends_on:
+      db:
+        condition: service_healthy
       agent:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   agent:
     build:
       context: ./agent_service
-    ports:
-      - "8100:8100"
     environment:
-      - AGENT_SERVICE_TOKEN=${AGENT_SERVICE_TOKEN:-dev-secret-token}
+      AGENT_SERVICE_TOKEN: ${AGENT_SERVICE_TOKEN:-dev-secret-token}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health')"]
       interval: 10s
@@ -26,3 +57,33 @@ services:
       retries: 3
       start_period: 10s
 
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  researchbridge-data:
+  caddy-data:
+  caddy-config:

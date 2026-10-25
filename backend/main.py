@@ -1,52 +1,5 @@
-"""ResearchBridge Backend - Main Application Entrypoint."""
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
+"""Compatibility import path retained for the original backend command/tests."""
 
-from app.db import init_db
-from app.routers import (
-    agent,
-    applications,
-    auth,
-    dashboards,
-    milestones,
-    opportunities,
-    projects,
-)
+from app.main import app
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Initialize database tables on startup
-    init_db()
-    yield
-
-
-app = FastAPI(
-    title="ResearchBridge API",
-    description="REST API for the Student Research Collaboration Platform",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
-# Include routers (SRS sections 4.1 to 4.8)
-app.include_router(auth.router)
-app.include_router(opportunities.router)
-app.include_router(applications.router)
-app.include_router(projects.router)
-app.include_router(milestones.router)
-app.include_router(dashboards.router)
-app.include_router(agent.router)
-
-
-@app.get("/")
-def root():
-    return {
-        "message": "ResearchBridge API is running"
-    }
-
-
-@app.get("/health")
-def health():
-    return {
-        "status": "healthy"
-    }
+__all__ = ["app"]

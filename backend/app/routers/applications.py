@@ -1,77 +1,121 @@
-"""Applications Router (FR-010, FR-011, FR-012, BR-003)."""
-import datetime as dt
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from datetime import date, datetime, timezone
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import get_db
-from app.deps import get_current_user, require_role
-from app.models import Application, Opportunity, User
+from ..db import get_db
+from ..deps import current_user, require_roles
+from ..models import Application, AuditLog, FacultyProfile, Opportunity, OpportunityVersion, StudentProfile, User
+from ..rules import check_application_eligibility
+from ..schemas import ApplyIn, DecideIn
 
-router = APIRouter(prefix="/applications", tags=["applications"])
-
-
-class DecideRequest(BaseModel):
-    status: str
-    comment: Optional[str] = None
+router = APIRouter(tags=["applications"])
 
 
-@router.get("/mine")
-def get_my_applications(
-    current_user: User = Depends(require_role("Student")),
-    db: Session = Depends(get_db),
-):
-    apps = db.query(Application).filter(Application.student_id == current_user.id).all()
-    return [
-        {
-            "id": a.id,
-            "opportunity_id": a.opportunity_id,
-            "opportunity_title": a.opportunity.title if a.opportunity else "Unknown",
-            "status": a.status,
-            "submitted_at": str(a.submitted_at),
-            "faculty_comment": a.faculty_comment,
-        }
-        for a in apps
-    ]
+def _serialize(application: Application) -> dict:
+    return {"id": application.id, "student_id": application.student_id,
+            "opportunity_id": application.opportunity_id, "motivation": application.motivation,
+            "req_version": application.req_version, "status": application.status,
+            "faculty_comment": application.faculty_comment,
+            "submitted_at": application.submitted_at.isoformat(),
+            "decided_at": application.decided_at.isoformat() if application.decided_at else None}
 
 
-@router.post("/{id}/withdraw")
-def withdraw_application(
-    id: int,
-    current_user: User = Depends(require_role("Student")),
-    db: Session = Depends(get_db),
-):
-    app = db.query(Application).filter(Application.id == id, Application.student_id == current_user.id).first()
-    if not app:
+@router.post("/opportunities/{opportunity_id}/apply", status_code=status.HTTP_201_CREATED)
+def apply(opportunity_id: int, body: ApplyIn, user: User = Depends(require_roles("Student")),
+          db: Session = Depends(get_db)):
+    opportunity = db.get(Opportunity, opportunity_id)
+    if opportunity is None:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    existing = db.query(Application).filter(Application.student_id == user.id,
+        Application.opportunity_id == opportunity_id, Application.status != "Withdrawn").first()
+    allowed, reason = check_application_eligibility(opportunity.status, opportunity.deadline, date.today(), existing is not None)
+    if not allowed:
+        raise HTTPException(status_code=409, detail=reason)
+    profile = db.query(StudentProfile).filter_by(user_id=user.id).first()
+    snapshot = {"name": user.name,
+                "skills": [item.skill_name for item in profile.skills] if profile else [],
+                "interests": [item.interest for item in profile.interests] if profile else [],
+                "research_experience": profile.research_experience if profile else ""}
+    application = Application(student_id=user.id, opportunity_id=opportunity.id,
+        motivation=body.motivation, profile_snapshot=json.dumps(snapshot),
+        req_version=opportunity.requirements_version, status="Submitted")
+    db.add(application)
+    try:
+        db.flush()
+        db.add(AuditLog(actor_user_id=user.id, entity_type="application", entity_id=application.id,
+                        action="submitted", detail={"opportunity_id": opportunity.id}))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="An active application already exists") from None
+    db.refresh(application)
+    return _serialize(application)
+
+
+@router.get("/applications/mine")
+def my_applications(user: User = Depends(require_roles("Student")), db: Session = Depends(get_db)):
+    rows = db.query(Application, Opportunity).join(Opportunity, Application.opportunity_id == Opportunity.id).filter(
+        Application.student_id == user.id).order_by(Application.submitted_at.desc()).all()
+    return [{**_serialize(application), "opportunity_title": opportunity.title,
+             "domain": opportunity.domain} for application, opportunity in rows]
+
+
+@router.post("/applications/{application_id}/withdraw")
+def withdraw(application_id: int, user: User = Depends(require_roles("Student")), db: Session = Depends(get_db)):
+    application = db.get(Application, application_id)
+    if application is None:
         raise HTTPException(status_code=404, detail="Application not found")
-
-    if app.status in ("Accepted", "Rejected", "Withdrawn"):
-        raise HTTPException(status_code=400, detail="Cannot withdraw finalized application")
-
-    app.status = "Withdrawn"
+    if application.student_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the applicant can withdraw")
+    if application.status not in {"Submitted", "Shortlisted"}:
+        raise HTTPException(status_code=409, detail="Application cannot be withdrawn in its current state")
+    application.status = "Withdrawn"
+    application.decided_at = datetime.now(timezone.utc)
+    db.add(AuditLog(actor_user_id=user.id, entity_type="application", entity_id=application.id,
+                    action="withdrawn", detail={}))
     db.commit()
-    return {"id": app.id, "status": "Withdrawn"}
+    return _serialize(application)
 
 
-@router.post("/{id}/decide")
-def decide_application(
-    id: int,
-    req: DecideRequest,
-    current_user: User = Depends(require_role("Faculty")),
-    db: Session = Depends(get_db),
-):
-    app = db.query(Application).filter(Application.id == id).first()
-    if not app:
+@router.get("/opportunities/{opportunity_id}/applications")
+def opportunity_applications(opportunity_id: int, user: User = Depends(require_roles("Faculty")),
+                              db: Session = Depends(get_db)):
+    opportunity = db.get(Opportunity, opportunity_id)
+    if opportunity is None:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    if opportunity.faculty_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the owning faculty member can review applications")
+    items = db.query(Application).filter_by(opportunity_id=opportunity_id).order_by(Application.submitted_at).all()
+    return [_serialize(item) | {"profile_snapshot": json.loads(item.profile_snapshot or "{}")}
+            for item in items]
+
+
+@router.post("/applications/{application_id}/decide")
+def decide(application_id: int, body: DecideIn, user: User = Depends(require_roles("Faculty")),
+           db: Session = Depends(get_db)):
+    application = db.get(Application, application_id)
+    if application is None:
         raise HTTPException(status_code=404, detail="Application not found")
-
-    if req.status not in ("Shortlisted", "Accepted", "Rejected"):
-        raise HTTPException(status_code=400, detail="Invalid decision status")
-
-    app.status = req.status
-    app.faculty_comment = req.comment
-    app.decided_at = dt.datetime.now(dt.timezone.utc)
+    opportunity = db.query(Opportunity).filter(Opportunity.id == application.opportunity_id).with_for_update().first()
+    if opportunity is None:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    if opportunity.faculty_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the owning faculty member can decide")
+    if application.status not in {"Submitted", "Shortlisted"}:
+        raise HTTPException(status_code=409, detail="Application has already been decided")
+    if body.status == "Accepted":
+        accepted = db.query(func.count(Application.id)).filter(
+            Application.opportunity_id == opportunity.id, Application.status == "Accepted").scalar() or 0
+        if accepted >= opportunity.capacity:
+            raise HTTPException(status_code=409, detail="Opportunity capacity has been reached")
+    application.status = body.status
+    application.faculty_comment = body.faculty_comment
+    application.decided_at = datetime.now(timezone.utc)
+    db.add(AuditLog(actor_user_id=user.id, entity_type="application", entity_id=application.id,
+                    action=body.status.casefold(), detail={"opportunity_id": opportunity.id}))
     db.commit()
-
-    return {"id": app.id, "status": app.status}
-
+    return _serialize(application)

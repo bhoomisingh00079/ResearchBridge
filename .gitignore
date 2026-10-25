@@ -5,9 +5,12 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+node_modules/
+frontend/dist/
 
 # Environment variables
 .env
+*.db
 
 # IDE
 .vscode/
@@ -15,8 +18,3 @@ venv/
 
 # macOS
 .DS_Store
-
-# Database
-*.db
-*.sqlite
-*.sqlite3

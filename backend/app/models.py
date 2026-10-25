@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -27,6 +28,7 @@ class User(Base):
     role = Column(String(50), nullable=False)  # Student, Faculty, Coordinator, Administrator
     status = Column(String(50), nullable=False, default="Active")  # Pending Verification, Active, Disabled
     verify_token = Column(String(255), nullable=True)
+    verify_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (
@@ -92,6 +94,7 @@ class FacultyProfile(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     bio = Column(Text, nullable=True)
+    expertise = Column(Text, nullable=True, default="[]")
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="faculty_profile")
@@ -111,6 +114,7 @@ class Opportunity(Base):
     deadline = Column(Date, nullable=True)
     published_at = Column(DateTime, nullable=True)
     requirements_version = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     __table_args__ = (
         CheckConstraint("capacity >= 1", name="check_capacity_positive"),
@@ -285,5 +289,31 @@ class ActivityLog(Base):
     entity_id = Column(Integer, nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
     action = Column(String(255), nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class OpportunityVersion(Base):
+    """Immutable application-time snapshot of opportunity requirements (FR-007)."""
+    __tablename__ = "opportunity_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    opportunity_id = Column(Integer, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=False)
+    version = Column(Integer, nullable=False)
+    snapshot = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    __table_args__ = (UniqueConstraint("opportunity_id", "version", name="uq_opportunity_version"),)
+
+
+class AuditLog(Base):
+    """Member A audit events with structured detail for admin review."""
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    entity_type = Column(String(100), nullable=False)
+    entity_id = Column(Integer, nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    action = Column(String(255), nullable=False)
+    detail = Column(JSON, nullable=False, default=dict)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

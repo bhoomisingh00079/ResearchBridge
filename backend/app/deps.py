@@ -1,49 +1,54 @@
-"""Dependencies for FastAPI routes: database, auth, and role checks (NFR-006, NFR-007)."""
-from typing import List, Optional
-from fastapi import Depends, HTTPException, Header, status
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.db import get_db
-from app.models import User
-from app.security import verify_token_get_user_id
+from .db import get_db
+from .models import User
+from .security import decode_access_token
+
+bearer = HTTPBearer(auto_error=False)
 
 
-def get_current_user(
-    authorization: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
-) -> User:
-    """Validate bearer token and retrieve active user (NFR-006)."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid Authorization header",
-        )
-    token = authorization[len("Bearer ") :].strip()
-    user_id = verify_token_get_user_id(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired authentication token",
-        )
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or user.status != "Active":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is inactive or not found",
-        )
+def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+                 db: Session = Depends(get_db)) -> User:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
+    payload = {}
+    try:
+        payload = decode_access_token(credentials.credentials)
+        user = db.get(User, int(payload["sub"]))
+    except (ValueError, KeyError):
+        user = None
+    if user is None or user.status != "Active" or user.role != payload.get("role"):
+        raise HTTPException(status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
     return user
 
 
-def require_role(*allowed_roles: str):
-    """Enforce server-side role check (NFR-007, FR-003)."""
+def optional_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+                  db: Session = Depends(get_db)) -> User | None:
+    if credentials is None:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        user = db.get(User, int(payload["sub"]))
+    except (ValueError, KeyError):
+        return None
+    if user is None or user.status != "Active" or user.role != payload.get("role"):
+        return None
+    return user
 
-    def role_checker(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied: required role in {allowed_roles}, your role is {current_user.role}",
-            )
-        return current_user
 
-    return role_checker
+def require_roles(*roles: str):
+    def dependency(user: User = Depends(current_user)) -> User:
+        if user.role not in roles:
+            raise HTTPException(status_code=403, detail="Role is not allowed")
+        return user
+    return dependency
 
+
+# Compatibility names used by the already integrated agent/dashboard routers.
+get_current_user = current_user
+
+
+def require_role(*roles: str):
+    return require_roles(*roles)

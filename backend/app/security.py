@@ -1,62 +1,78 @@
-"""Security utilities: password hashing and bearer token generation (NFR-005, NFR-006)."""
+import base64
 import hashlib
 import hmac
-import os
+import json
 import secrets
-from typing import Optional
+import time
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "rb-insecure-dev-secret-key-change-in-prod")
-SALT_LENGTH = 16
-ITERATIONS = 100_000
+from .config import get_settings
+
+PBKDF2_ITERATIONS = 600_000
 
 
 def hash_password(password: str) -> str:
-    """Hash password using salted PBKDF2-HMAC-SHA256 (NFR-005)."""
-    salt = secrets.token_hex(SALT_LENGTH)
-    key = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        salt.encode("utf-8"),
-        ITERATIONS,
-    )
-    return f"{salt}${key.hex()}"
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS)
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${_b64(salt)}${_b64(digest)}"
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against stored salt$hash."""
+def verify_password(password: str, encoded: str) -> bool:
     try:
-        salt, key_hex = hashed_password.split("$", 1)
-        expected_key = hashlib.pbkdf2_hmac(
-            "sha256",
-            plain_password.encode("utf-8"),
-            salt.encode("utf-8"),
-            ITERATIONS,
-        )
-        return hmac.compare_digest(expected_key.hex(), key_hex)
-    except Exception:
+        scheme, iterations, salt, expected = encoded.split("$", 3)
+        if scheme != "pbkdf2_sha256":
+            return False
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode(), _unb64(salt), int(iterations))
+        return hmac.compare_digest(_b64(digest), expected)
+    except (ValueError, TypeError):
         return False
 
 
-def create_token_for_user(user_id: int) -> str:
-    """Generate a simple signed token: <user_id>.<random_hex>.<signature>."""
-    random_part = secrets.token_hex(16)
-    payload = f"{user_id}:{random_part}"
-    sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return f"{payload}:{sig}"
+def create_access_token(user_id: int, role: str) -> str:
+    payload = {"sub": str(user_id), "role": role, "exp": int(time.time()) + get_settings().token_ttl_seconds}
+    encoded = _b64(json.dumps(payload, separators=(",", ":")).encode())
+    signature = _b64(hmac.new(get_settings().signing_key, encoded.encode(), hashlib.sha256).digest())
+    return f"{encoded}.{signature}"
 
 
-def verify_token_get_user_id(token: str) -> Optional[int]:
-    """Verify signature and extract user_id."""
+def decode_access_token(token: str) -> dict:
     try:
-        parts = token.split(":")
-        if len(parts) != 3:
-            return None
-        user_id_str, random_part, sig = parts
-        payload = f"{user_id_str}:{random_part}"
-        expected_sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected_sig, sig):
-            return None
-        return int(user_id_str)
-    except Exception:
-        return None
+        encoded, signature = token.split(".", 1)
+        expected = _b64(hmac.new(get_settings().signing_key, encoded.encode(), hashlib.sha256).digest())
+        if not hmac.compare_digest(signature, expected):
+            raise ValueError("bad signature")
+        payload = json.loads(_unb64(encoded))
+        if int(payload["exp"]) <= int(time.time()):
+            raise ValueError("expired")
+        int(payload["sub"])
+        return payload
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid token") from exc
 
+
+def new_verification_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _b64(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode().rstrip("=")
+
+
+def _unb64(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def create_token_for_user(user_id: int) -> str:
+    from .models import User
+    from .db import SessionLocal
+    with SessionLocal() as db:
+        user = db.get(User, user_id)
+        if user is None:
+            raise ValueError("Unknown user")
+        return create_access_token(user_id, user.role)
+
+
+def verify_token_get_user_id(token: str) -> int | None:
+    try:
+        return int(decode_access_token(token)["sub"])
+    except (ValueError, KeyError):
+        return None

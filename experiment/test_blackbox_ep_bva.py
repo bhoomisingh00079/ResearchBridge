@@ -23,7 +23,7 @@ REQUIRED_PATHS = {
     "/projects", "/projects/{project_id}/milestones", "/milestones/{milestone_id}",
     "/projects/{project_id}/milestones/overdue",
 }
-available_paths = {route.path for route in main.app.routes}
+available_paths = set(main.app.openapi()["paths"])
 if not REQUIRED_PATHS.issubset(available_paths):
     pytest.skip("Member A auth/opportunity/application/milestone API contract is not mounted yet",
                 allow_module_level=True)
