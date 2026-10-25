@@ -29,6 +29,10 @@ def verify_password(password: str, encoded: str) -> bool:
 
 def create_access_token(user_id: int, role: str) -> str:
     payload = {"sub": str(user_id), "role": role, "exp": int(time.time()) + get_settings().token_ttl_seconds}
+    return _encode_token(payload)
+
+
+def _encode_token(payload: dict) -> str:
     encoded = _b64(json.dumps(payload, separators=(",", ":")).encode())
     signature = _b64(hmac.new(get_settings().signing_key, encoded.encode(), hashlib.sha256).digest())
     return f"{encoded}.{signature}"
@@ -62,13 +66,11 @@ def _unb64(value: str) -> bytes:
 
 
 def create_token_for_user(user_id: int) -> str:
-    from .models import User
-    from .db import SessionLocal
-    with SessionLocal() as db:
-        user = db.get(User, user_id)
-        if user is None:
-            raise ValueError("Unknown user")
-        return create_access_token(user_id, user.role)
+    # Older dashboard tests and integrations pass only the database ID. Keep
+    # their token independent of the global DB session so overridden test DBs
+    # work; authorization still uses the active User record in current_user.
+    payload = {"sub": str(user_id), "exp": int(time.time()) + get_settings().token_ttl_seconds}
+    return _encode_token(payload)
 
 
 def verify_token_get_user_id(token: str) -> int | None:

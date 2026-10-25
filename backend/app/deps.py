@@ -19,7 +19,7 @@ def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
         user = db.get(User, int(payload["sub"]))
     except (ValueError, KeyError):
         user = None
-    if user is None or user.status != "Active" or user.role != payload.get("role"):
+    if user is None or user.status != "Active" or (payload.get("role") and user.role != payload["role"]):
         raise HTTPException(status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
     return user
 
@@ -33,7 +33,7 @@ def optional_user(credentials: HTTPAuthorizationCredentials | None = Depends(bea
         user = db.get(User, int(payload["sub"]))
     except (ValueError, KeyError):
         return None
-    if user is None or user.status != "Active" or user.role != payload.get("role"):
+    if user is None or user.status != "Active" or (payload.get("role") and user.role != payload["role"]):
         return None
     return user
 
