@@ -24,7 +24,7 @@ def register(body: RegisterIn, background_tasks: BackgroundTasks, db: Session = 
     if body.role not in {"Student", "Faculty"} or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", body.email):
         raise HTTPException(status_code=400, detail="Registration failed")
     domain = body.email.rsplit("@", 1)[-1]
-    if domain not in settings.allowed_domains:
+    if not settings.allows_domain(domain):
         raise HTTPException(status_code=400, detail="Registration failed")
     user = User(email=body.email, password_hash=hash_password(body.password), name=body.name,
                 role=body.role, status="Pending Verification", verify_token=new_verification_token(),

@@ -28,6 +28,15 @@ class Settings:
     public_base_url: str = os.getenv("PUBLIC_BASE_URL", "https://localhost")
 
     @property
+    def allows_all_domains(self) -> bool:
+        return "*" in self.allowed_domains or "all" in self.allowed_domains
+
+    def allows_domain(self, domain: str) -> bool:
+        if self.allows_all_domains:
+            return True
+        return domain.strip().casefold().lstrip("@") in self.allowed_domains
+
+    @property
     def is_production(self) -> bool:
         return self.app_env == "production"
 

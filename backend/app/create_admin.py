@@ -20,7 +20,7 @@ def main() -> int:
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
         print("A valid institutional email is required.", file=sys.stderr)
         return 2
-    if email.rsplit("@", 1)[-1] not in get_settings().allowed_domains:
+    if not get_settings().allows_domain(email.rsplit("@", 1)[-1]):
         print("Administrator email domain is not allowed by ALLOWED_DOMAINS.", file=sys.stderr)
         return 2
     password = getpass.getpass("Administrator password (minimum 12 characters): ")
