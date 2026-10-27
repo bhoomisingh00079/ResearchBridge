@@ -10,15 +10,19 @@ import React, { useState, useEffect } from 'react';
  *  - Loads independently from the main dashboard (NFR-002).
  *  - Supports four distinct states: loading, empty, error/unavailable, ready.
  */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function AgentPanel({ token, apiUrl = '/agent/recommendations' }) {
   const [recommendations, setRecommendations] = useState([]);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'empty' | 'unavailable'
   const [errorMessage, setErrorMessage] = useState('');
 
+  const resolvedApiUrl = apiUrl.startsWith('http') ? apiUrl : `${API_BASE}${apiUrl}`;
+
   const fetchRecommendations = async () => {
     setStatus('loading');
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch(resolvedApiUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -53,7 +57,7 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
 
   const handleDismiss = async (id) => {
     try {
-      const response = await fetch(`/agent/recommendations/${id}/dismiss`, {
+      const response = await fetch(`${API_BASE}/agent/recommendations/${id}/dismiss`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

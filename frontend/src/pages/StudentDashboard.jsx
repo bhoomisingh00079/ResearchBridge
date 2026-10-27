@@ -12,6 +12,8 @@ import AgentPanel from '../components/AgentPanel';
  *
  * Testability: All interactive and key structural elements have `data-testid="student-dashboard-<element>"`.
  */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function StudentDashboard({ token }) {
   const [dashboardData, setDashboardData] = useState(null);
   const [screenState, setScreenState] = useState('loading'); // 'loading' | 'ready' | 'empty' | 'error' | 'access-denied'
@@ -21,7 +23,7 @@ export default function StudentDashboard({ token }) {
     async function loadDashboard() {
       setScreenState('loading');
       try {
-        const res = await fetch('/dashboard/student', {
+        const res = await fetch(`${API_BASE}/dashboard/student`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',

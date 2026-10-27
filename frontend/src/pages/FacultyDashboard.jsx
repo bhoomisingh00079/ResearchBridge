@@ -11,6 +11,8 @@ import React, { useState, useEffect } from 'react';
  *
  * Testability: All elements have `data-testid="faculty-dashboard-<element>"`.
  */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function FacultyDashboard({ token }) {
   const [data, setData] = useState(null);
   const [screenState, setScreenState] = useState('loading');
@@ -20,7 +22,7 @@ export default function FacultyDashboard({ token }) {
     async function fetchDashboard() {
       setScreenState('loading');
       try {
-        const res = await fetch('/dashboard/faculty', {
+        const res = await fetch(`${API_BASE}/dashboard/faculty`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',

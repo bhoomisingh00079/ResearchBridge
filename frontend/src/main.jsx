@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, json } from "./api.js";
+import StudentDashboard from "./pages/StudentDashboard.jsx";
+import FacultyDashboard from "./pages/FacultyDashboard.jsx";
+import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
 import "./styles.css";
 
 function currentRoute() {
@@ -71,7 +74,7 @@ function App() {
     sessionStorage.setItem("rb-token", token);
     const data = await api("/me");
     setUser(data);
-    go("opportunities");
+    go("dashboard");
   }
 
   function signOut() {
@@ -85,6 +88,14 @@ function App() {
     if (route.page === "home") return <Home user={user} />;
     if (route.page === "login" || route.page === "register") return <AuthPage mode={route.page} onSignedIn={signedIn} />;
     if (route.page === "verify") return <VerifyPage token={route.token} />;
+    if (route.page === "dashboard") {
+      const token = sessionStorage.getItem("rb-token");
+      if (!user) return <PageState kind="denied" message="Please sign in to view your research dashboard." />;
+      if (user.role === "Student") return <StudentDashboard token={token} />;
+      if (user.role === "Faculty") return <FacultyDashboard token={token} />;
+      if (user.role === "Coordinator" || user.role === "Administrator") return <CoordinatorDashboard token={token} />;
+      return <PageState kind="denied" message="Dashboard is not available for this role." />;
+    }
     if (route.page === "opportunities") return <OpportunityList user={user} />;
     if (route.page === "my-opportunities") return <MyOpportunities user={user} />;
     if (route.page === "my-applications") return <MyApplications user={user} />;
@@ -105,11 +116,13 @@ function App() {
       </a>
       <div className="nav-label">WORKSPACE</div>
       <nav aria-label="Main navigation" className="side-nav">
+        {user && <a href="#/dashboard" data-testid="nav-dashboard"><span aria-hidden="true">◫</span> Dashboard</a>}
         <a href="#/opportunities" data-testid="nav-opportunities"><span aria-hidden="true">⌕</span> Explore research</a>
         {user?.role === "Faculty" && <a href="#/create" data-testid="nav-create"><span aria-hidden="true">＋</span> New opportunity</a>}
         {user?.role === "Faculty" && <a href="#/my-opportunities" data-testid="nav-my-opportunities"><span aria-hidden="true">▤</span> My opportunities</a>}
         {user?.role === "Student" && <a href="#/my-applications" data-testid="nav-my-applications"><span aria-hidden="true">◷</span> My applications</a>}
         {user && <a href="#/profile" data-testid="nav-profile"><span aria-hidden="true">◉</span> My profile</a>}
+        {user && <a href="/workspace" target="_blank" rel="noopener noreferrer" data-testid="nav-workspace"><span aria-hidden="true">▤</span> Project workspace ↗</a>}
         {user?.role === "Administrator" && <a href="#/admin" data-testid="nav-admin"><span aria-hidden="true">▤</span> User administration</a>}
       </nav>
       <div className="sidebar-note"><span className="note-orbit" aria-hidden="true">✳</span><strong>Good research grows together.</strong><p>Find a question worth asking, then find your people.</p></div>

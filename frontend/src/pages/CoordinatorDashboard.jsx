@@ -11,6 +11,8 @@ import React, { useState, useEffect } from 'react';
  *
  * Testability: All elements have `data-testid="coord-dashboard-<element>"`.
  */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
 export default function CoordinatorDashboard({ token }) {
   const [data, setData] = useState(null);
   const [screenState, setScreenState] = useState('loading');
@@ -20,7 +22,7 @@ export default function CoordinatorDashboard({ token }) {
     async function fetchCoordinatorData() {
       setScreenState('loading');
       try {
-        const res = await fetch('/dashboard/coordinator', {
+        const res = await fetch(`${API_BASE}/dashboard/coordinator`, {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
