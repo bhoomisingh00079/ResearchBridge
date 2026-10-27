@@ -14,9 +14,9 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from member_c.agent_client import AgentClient
-from member_c.dashboard import create_dashboard_router
-from member_c.recommendations import InMemoryRecommendationStore, Recommendation
+from advisory.agent_client import AgentClient
+from advisory.dashboard import create_dashboard_router
+from advisory.recommendations import InMemoryRecommendationStore, Recommendation
 
 
 def test_agent_client_allowlists_fields_and_returns_unavailable_on_error():

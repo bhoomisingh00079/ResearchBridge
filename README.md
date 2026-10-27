@@ -45,7 +45,13 @@ ResearchBridge/
 │   │   ├── routers/              # auth, opportunities, applications, projects,
 │   │   │                         # milestones, dashboards, agent
 │   │   └── services/agent_client.py # HTTP client with 10s timeout & graceful fallback
-│   ├── member_c/                 # Member C contract implementation & test suite
+│   ├── advisory/                 # Advisory & intelligent matching module
+│   │   ├── agent_client.py       # Privacy-minimizing, fail-safe client for agent
+│   │   ├── agent_routes.py       # Advisory recommendation and alerts routes
+│   │   ├── dashboard.py          # Server-side role-gated dashboard routes
+│   │   ├── recommendations.py    # Recommendation persistence & dismissal store
+│   │   └── tests/test_advisory.py # Isolated advisory test suite
+│   ├── workspace_routes.py       # Project workspace, milestones, resources & activity
 │   ├── tests/                    # Backend API, dashboard, and safety invariant tests
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -70,14 +76,15 @@ ResearchBridge/
 ├── docker-compose.yml
 └── docs/
     ├── PLAN.md                   # End-to-end technical plan
-    └── MEMBER_C_VERIFICATION.md  # Verification records & test evidence
+    ├── ADVISORY_VERIFICATION.md  # Advisory service verification records
+    └── WORKSPACE_INTEGRATION.md  # Workspace integration documentation
 ```
 
 ---
 
 ## 3. Quickstart Guide
 
-### Option A: Docker Compose
+### Option A: Docker Compose (Production-like)
 ```bash
 # Clone the repository
 git clone https://github.com/bhoomisingh00079/ResearchBridge.git
@@ -89,17 +96,15 @@ cp .env.example .env
 # Build and start services
 docker compose up --build
 ```
-- Web application: `https://localhost`
-- API: `https://localhost/api`; interactive docs: `https://localhost/api/docs`
-- Agent service: internal to the Compose network; it is not published to the host.
+- Backend API: `http://localhost:8000`
+- Interactive API Docs: `http://localhost:8000/docs`
+- Agent Service (Internal): `http://localhost:8100`
 
 ### Option B: Local Development
 ```bash
-# 1. Install and prepare the backend
+# 1. Install backend dependencies
 cd backend
 pip install -r requirements.txt
-alembic upgrade head
-python -m app.seed
 
 # 2. Run backend API
 uvicorn main:app --reload --port 8000
@@ -135,7 +140,7 @@ Verifies service token authentication, deterministic matching formulas, mileston
 cd backend
 python -m pytest
 cd ..
-python -m pytest agent_service/tests backend/member_c/tests experiment/test_whitebox_basis_path.py experiment/test_blackbox_ep_bva.py
+python -m pytest agent_service/tests backend/advisory/tests experiment/test_whitebox_basis_path.py experiment/test_blackbox_ep_bva.py
 ```
 Verifies:
 - 10-second timeout enforcement (`NFR-002`)
