@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
 /**
- * Agent Advisory Panel — "The Seer's Compass" (FR-026, FR-031, NFR-002).
+ * Agent Advisory Panel (FR-026, FR-031, NFR-002, PLAN Section 6).
  *
  * Requirements:
- *  - Visually distinct styling (Scholarium academic parchment & antique gold, advisory only).
+ *  - Visually distinct styling (tactile academic advisory panel, non-binding).
  *  - Displays reason text and match score clearly.
  *  - One-click dismiss button with data-testid="agent-dismiss" (FR-031).
  *  - Loads independently from the main dashboard (NFR-002).
@@ -33,7 +33,7 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
 
       if (!response.ok) {
         setStatus('unavailable');
-        setErrorMessage('The advisory compass is currently resting.');
+        setErrorMessage('AI Recommendation service is currently unavailable.');
         return;
       }
 
@@ -47,7 +47,7 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
       }
     } catch (err) {
       setStatus('unavailable');
-      setErrorMessage('The advisory compass is currently unavailable.');
+      setErrorMessage('AI Recommendation service is currently unavailable.');
     }
   };
 
@@ -87,7 +87,7 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
         <div>
           <div className="advisor-tagline">
             <span className="advisor-sparkle" aria-hidden="true">✦</span>
-            <span>The Seer’s Compass · Advisory Intelligence</span>
+            <span>Advisory Intelligence</span>
           </div>
           <h3 className="advisor-title" data-testid="agent-panel-title">
             AI Research Advisor <span className="advisor-advisory-pill">(Advisory Only)</span>
@@ -100,13 +100,13 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
           style={{ minHeight: '34px', padding: '0 12px', fontSize: '11px' }}
           type="button"
         >
-          <span aria-hidden="true">↻</span> Consult Compass
+          <span aria-hidden="true">↻</span> Refresh
         </button>
       </div>
 
       {status === 'loading' && (
-        <div data-testid="agent-panel-loading" style={{ padding: '16px', textAlign: 'center', color: 'var(--color-moss)', fontSize: '12.5px' }}>
-          Aligning scholar interests with active research questions…
+        <div data-testid="agent-panel-loading" style={{ padding: '16px', textAlign: 'center', color: '#5b756e', fontSize: '12px' }}>
+          Analyzing research profiles and opportunities…
         </div>
       )}
 
@@ -116,22 +116,22 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
           style={{
             padding: '12px 14px',
             borderRadius: '8px',
-            backgroundColor: '#F8E6E4',
-            border: '1px solid #E6B6B2',
-            color: '#792A2A',
+            backgroundColor: '#faece7',
+            border: '1px solid #f2c7b8',
+            color: '#8b3825',
             fontSize: '12px'
           }}
         >
           <p style={{ margin: 0, fontWeight: 600 }}>{errorMessage}</p>
           <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#68453c' }}>
-            The academy chambers remain fully operational. You can consult the compass again later.
+            The dashboard remains fully functional. You can try refreshing later.
           </p>
         </div>
       )}
 
       {status === 'empty' && (
-        <div data-testid="agent-panel-empty" style={{ padding: '16px', textAlign: 'center', color: 'var(--color-ink-secondary)', fontSize: '12.5px' }}>
-          No new advisory alignments right now. Expand your Scholar’s Codex with more methodological skills to receive tailored question recommendations.
+        <div data-testid="agent-panel-empty" style={{ padding: '16px', textAlign: 'center', color: '#607873', fontSize: '12px' }}>
+          No new suggestions at this moment. Add more skills to your profile to receive tailored opportunity matches.
         </div>
       )}
 
@@ -148,7 +148,7 @@ export default function AgentPanel({ token, apiUrl = '/agent/recommendations' })
                   className="advisor-score-badge"
                   data-testid={`agent-score-${rec.id}`}
                 >
-                  Affinity Score: {rec.score}
+                  Score: {rec.score}
                 </span>
                 <span className="advisor-reason-text" data-testid={`agent-reason-${rec.id}`}>
                   {rec.reason_text}

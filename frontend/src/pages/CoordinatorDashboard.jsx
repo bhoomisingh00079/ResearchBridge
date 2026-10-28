@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 /**
- * Coordinator / Administrator Dashboard — "The Institutional Observatory" (FR-034, PLAN Section 6).
+ * Coordinator / Administrator Dashboard (FR-034, PLAN Section 6).
  *
  * Implements the four mandated screen states:
  *   1. loading
@@ -64,8 +64,8 @@ export default function CoordinatorDashboard({ token }) {
     return (
       <div data-testid="coord-dashboard-loading" className="state-card state-loading">
         <span className="state-mark" aria-hidden="true">◌</span>
-        <h2>Consulting The Institutional Observatory…</h2>
-        <p>Aggregating academy census data, active submissions, and ongoing expedition registries.</p>
+        <h2>Loading Platform Metrics…</h2>
+        <p>Aggregating institutional data, active applications, and research opportunities.</p>
       </div>
     );
   }
@@ -74,8 +74,8 @@ export default function CoordinatorDashboard({ token }) {
     return (
       <div data-testid="coord-dashboard-access-denied" className="state-card state-denied">
         <span className="state-mark" aria-hidden="true">⌑</span>
-        <h2>Observatory Privileges Required</h2>
-        <p>Coordinator or Administrator permissions are required to view institutional analytics.</p>
+        <h2>Access Restricted</h2>
+        <p>Coordinator or Administrator permissions are required to access institutional analytics.</p>
       </div>
     );
   }
@@ -84,7 +84,7 @@ export default function CoordinatorDashboard({ token }) {
     return (
       <div data-testid="coord-dashboard-error" className="state-card state-error">
         <span className="state-mark" aria-hidden="true">!</span>
-        <h2>Observatory Telescope Clouded</h2>
+        <h2>Analytics Unavailable</h2>
         <p>{errorMsg}</p>
       </div>
     );
@@ -97,20 +97,20 @@ export default function CoordinatorDashboard({ token }) {
 
   return (
     <div data-testid="coord-dashboard-container" className="dashboard-shell">
-      {/* 1. Header — The Institutional Observatory */}
+      {/* 1. Header */}
       <header className="dashboard-header">
         <div>
-          <div className="dashboard-kicker">✦ ACADEMY OVERSIGHT</div>
+          <div className="dashboard-kicker">Institutional Oversight & Analytics</div>
           <h1 className="dashboard-title" data-testid="coord-dashboard-title">
-            The Institutional Observatory
+            Institutional Overview
           </h1>
           <p className="dashboard-subtitle">
-            A wider view of research, participation, and progress across the academy.
+            System-wide research activity metrics, cohort participation, and project progress.
           </p>
         </div>
         <div className="dashboard-actions">
           <a href="#/opportunities" className="button button-secondary" style={{ textDecoration: 'none' }}>
-            <span>Explore Archive</span>
+            <span>View Opportunities</span>
           </a>
         </div>
       </header>
@@ -119,38 +119,38 @@ export default function CoordinatorDashboard({ token }) {
       <section className="metrics-strip" aria-label="Institutional KPI Strip">
         <div className="metric-card">
           <div className="metric-eyebrow">
-            <span>Research Community</span>
-            <span aria-hidden="true">👥</span>
+            <span>Community Members</span>
+            <span aria-hidden="true">◉</span>
           </div>
           <div className="metric-value">{totalUsers}</div>
-          <div className="metric-caption">Enrolled scholars & faculty</div>
+          <div className="metric-caption">Verified participants</div>
         </div>
 
         <div className="metric-card metric-card-lime">
           <div className="metric-eyebrow">
-            <span>The Research Archive</span>
-            <span aria-hidden="true">✦</span>
+            <span>Research Listings</span>
+            <span aria-hidden="true">★</span>
           </div>
           <div className="metric-value">{totalOpps}</div>
-          <div className="metric-caption">Total recorded questions</div>
+          <div className="metric-caption">Faculty opportunities</div>
         </div>
 
         <div className="metric-card metric-card-sage">
           <div className="metric-eyebrow">
-            <span>Ongoing Expeditions</span>
+            <span>Active Projects</span>
             <span aria-hidden="true">◫</span>
           </div>
           <div className="metric-value">{totalProjects}</div>
-          <div className="metric-caption">Active lab teams</div>
+          <div className="metric-caption">Ongoing student labs</div>
         </div>
 
         <div className="metric-card metric-card-accent">
           <div className="metric-eyebrow">
-            <span>Application Register</span>
+            <span>Total Applications</span>
             <span aria-hidden="true">✉</span>
           </div>
           <div className="metric-value">{totalApps}</div>
-          <div className="metric-caption">Student scholar submissions</div>
+          <div className="metric-caption">Student submissions</div>
         </div>
       </section>
 
@@ -158,8 +158,8 @@ export default function CoordinatorDashboard({ token }) {
       {screenState === 'empty' ? (
         <div data-testid="coord-dashboard-empty" className="state-card state-empty">
           <span className="state-mark" aria-hidden="true">✦</span>
-          <h2>The Academy Is Newly Founded</h2>
-          <p>Scholar accounts and faculty opportunities will appear here once registered.</p>
+          <h2>No activity recorded yet</h2>
+          <p>User accounts and research opportunities will appear here once registered.</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
@@ -170,22 +170,22 @@ export default function CoordinatorDashboard({ token }) {
             style={{ margin: 0 }}
           >
             <div className="feed-card-header">
-              <h3 className="feed-card-title">The Research Community</h3>
+              <h3 className="feed-card-title">Users by Role</h3>
               <span className="badge-count">{totalUsers}</span>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: '8px' }}>
               {Object.entries(data?.metrics?.users_by_role || {}).map(([role, count]) => {
                 const pct = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
                 return (
-                  <li key={role} style={{ background: '#EDE5D5', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--color-divider)' }}>
+                  <li key={role} style={{ background: '#f5f7f0', padding: '10px 12px', borderRadius: '7px', border: '1px solid #e7ebe1' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <strong style={{ fontSize: '13px', color: 'var(--color-academy-deep)' }}>{role}</strong>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-ink-secondary)' }}>
+                      <strong style={{ fontSize: '13px', color: 'var(--color-teal)' }}>{role}</strong>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
                         {count} ({pct}%)
                       </span>
                     </div>
-                    <div style={{ height: '5px', background: '#DBD0BD', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-gold-antique)', borderRadius: '3px' }} />
+                    <div style={{ height: '4px', background: '#e1e7dc', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-teal)', borderRadius: '2px' }} />
                     </div>
                   </li>
                 );
@@ -200,7 +200,7 @@ export default function CoordinatorDashboard({ token }) {
             style={{ margin: 0 }}
           >
             <div className="feed-card-header">
-              <h3 className="feed-card-title">Research Archive by Status</h3>
+              <h3 className="feed-card-title">Opportunities by Status</h3>
               <span className="badge-count">{totalOpps}</span>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: '8px' }}>
@@ -212,12 +212,12 @@ export default function CoordinatorDashboard({ token }) {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '10px 12px',
-                    background: '#EDE5D5',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-divider)'
+                    background: '#f5f7f0',
+                    borderRadius: '7px',
+                    border: '1px solid #e7ebe1'
                   }}
                 >
-                  <strong style={{ fontSize: '13px', color: 'var(--color-academy-deep)' }}>{st}</strong>
+                  <strong style={{ fontSize: '13px', color: 'var(--color-teal)' }}>{st}</strong>
                   <span className={`status-pill ${st === 'Published' ? 'status-good' : st === 'Closed' ? 'status-muted' : 'status-warm'}`}>
                     {count}
                   </span>
@@ -233,7 +233,7 @@ export default function CoordinatorDashboard({ token }) {
             style={{ margin: 0 }}
           >
             <div className="feed-card-header">
-              <h3 className="feed-card-title">Ongoing Expeditions</h3>
+              <h3 className="feed-card-title">Projects by Status</h3>
               <span className="badge-count">{totalProjects}</span>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: '8px' }}>
@@ -245,12 +245,12 @@ export default function CoordinatorDashboard({ token }) {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '10px 12px',
-                    background: '#EDE5D5',
-                    borderRadius: '8px',
-                    border: '1px solid var(--color-divider)'
+                    background: '#f5f7f0',
+                    borderRadius: '7px',
+                    border: '1px solid #e7ebe1'
                   }}
                 >
-                  <strong style={{ fontSize: '13px', color: 'var(--color-academy-deep)' }}>{st}</strong>
+                  <strong style={{ fontSize: '13px', color: 'var(--color-teal)' }}>{st}</strong>
                   <span className={`status-pill ${st === 'Active' ? 'status-good' : 'status-muted'}`}>
                     {count}
                   </span>
@@ -266,18 +266,18 @@ export default function CoordinatorDashboard({ token }) {
             style={{ margin: 0 }}
           >
             <div className="feed-card-header">
-              <h3 className="feed-card-title">Application Register</h3>
+              <h3 className="feed-card-title">Applications Activity</h3>
               <span className="badge-count">{totalApps}</span>
             </div>
-            <div style={{ marginTop: '14px', padding: '16px', background: '#EDE5D5', borderRadius: '8px', border: '1px solid var(--color-divider)', textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: 'var(--color-moss)' }}>
+            <div style={{ marginTop: '14px', padding: '16px', background: '#f5f7f0', borderRadius: '8px', border: '1px solid #e7ebe1', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: '#688279' }}>
                 Total Student Submissions
               </div>
-              <p style={{ fontSize: '34px', fontWeight: 700, margin: '6px 0', color: 'var(--color-academy-deep)', fontFamily: 'var(--font-display)' }}>
+              <p style={{ fontSize: '32px', fontWeight: 700, margin: '6px 0', color: 'var(--color-teal)', fontFamily: 'var(--font-sans)' }}>
                 {data?.metrics?.total_applications ?? 0}
               </p>
-              <div style={{ fontSize: '12px', color: 'var(--color-ink-secondary)' }}>
-                Recorded across active and past academy terms
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Recorded across active and past semesters
               </div>
             </div>
           </div>

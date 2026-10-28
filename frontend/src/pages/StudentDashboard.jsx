@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import AgentPanel from '../components/AgentPanel';
 
 /**
- * Student Dashboard — "The Scholar's Chamber" (FR-032, PLAN Section 6).
+ * Student Dashboard (FR-032, PLAN Section 6).
  *
  * Implements the four mandated screen states:
  *   1. loading
@@ -86,8 +86,8 @@ export default function StudentDashboard({ token }) {
     return (
       <div data-testid="student-dashboard-loading" className="state-card state-loading">
         <span className="state-mark" aria-hidden="true">◌</span>
-        <h2>Consulting The Scholar’s Chamber…</h2>
-        <p>Gathering your active applications, milestones, and collaborative research teams.</p>
+        <h2>Gathering your research workspace…</h2>
+        <p>Loading your active applications, milestones, and project teams.</p>
       </div>
     );
   }
@@ -96,8 +96,8 @@ export default function StudentDashboard({ token }) {
     return (
       <div data-testid="student-dashboard-access-denied" className="state-card state-denied">
         <span className="state-mark" aria-hidden="true">⌑</span>
-        <h2>Scholar Credentials Required</h2>
-        <p>You must be signed in with a verified Student account to enter this chamber.</p>
+        <h2>Student Access Required</h2>
+        <p>You must be signed in with a verified Student account to view this dashboard.</p>
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default function StudentDashboard({ token }) {
     return (
       <div data-testid="student-dashboard-error" className="state-card state-error">
         <span className="state-mark" aria-hidden="true">!</span>
-        <h2>Chamber Unavailable</h2>
+        <h2>Service Unavailable</h2>
         <p>{errorMsg}</p>
       </div>
     );
@@ -114,30 +114,25 @@ export default function StudentDashboard({ token }) {
 
   return (
     <div data-testid="student-dashboard-container" className="dashboard-shell">
-      {/* 1. Header — The Scholar's Chamber */}
+      {/* 1. Redesigned Page Header */}
       <header className="dashboard-header">
         <div>
-          <div className="dashboard-kicker">✦ THE SCHOLAR’S CHAMBER</div>
+          <div className="dashboard-kicker">Student Researcher Workspace</div>
           <h1 className="dashboard-title" data-testid="student-dashboard-welcome">
-            Your Research Journey
+            Welcome, {dashboardData?.user?.name}
           </h1>
-          <p className="dashboard-subtitle" data-testid="student-dashboard-greeting">
-            Welcome back, {dashboardData?.user?.name || 'Scholar'}. Every question you pursue opens another door.
+          <p className="dashboard-subtitle">
+            Manage your applications, collaborate on active research projects, and track upcoming milestones.
           </p>
         </div>
         <div className="dashboard-actions">
-          <a
-            href="#/opportunities"
-            className="button"
-            data-testid="student-dashboard-explore-btn"
-            style={{ textDecoration: 'none' }}
-          >
-            <span>Explore Research Archive</span> <span aria-hidden="true">→</span>
+          <a href="#/opportunities" className="button" style={{ textDecoration: 'none' }}>
+            <span>Explore Opportunities</span> <span aria-hidden="true">→</span>
           </a>
         </div>
       </header>
 
-      {/* 2. Real Metrics Overview Strip */}
+      {/* 2. Restrained Real Metrics Strip */}
       <section className="metrics-strip" aria-label="Research overview metrics">
         <div className="metric-card">
           <div className="metric-eyebrow">
@@ -145,10 +140,10 @@ export default function StudentDashboard({ token }) {
             <span aria-hidden="true">⏳</span>
           </div>
           <div className="metric-value">{metrics.activeApps}</div>
-          <div className="metric-caption">Awaiting faculty review</div>
+          <div className="metric-caption">Submitted or shortlisted</div>
         </div>
 
-        <div className="metric-card metric-card-accent">
+        <div className="metric-card metric-card-lime">
           <div className="metric-eyebrow">
             <span>Accepted Offers</span>
             <span aria-hidden="true">✓</span>
@@ -159,47 +154,47 @@ export default function StudentDashboard({ token }) {
 
         <div className="metric-card metric-card-sage">
           <div className="metric-eyebrow">
-            <span>Active Expeditions</span>
+            <span>Active Projects</span>
             <span aria-hidden="true">◫</span>
           </div>
           <div className="metric-value">{metrics.activeProjects}</div>
           <div className="metric-caption">Enrolled lab teams</div>
         </div>
 
-        <div className="metric-card metric-card-lime">
+        <div className="metric-card metric-card-accent">
           <div className="metric-eyebrow">
             <span>Pending Milestones</span>
             <span aria-hidden="true">◷</span>
           </div>
           <div className="metric-value">{metrics.pendingMilestones}</div>
-          <div className="metric-caption">Expedition tasks in progress</div>
+          <div className="metric-caption">Deliverables in progress</div>
         </div>
       </section>
 
-      {/* 3. The Seer’s Compass: Advisory AI */}
+      {/* 3. Redesigned AI Research Advisor */}
       <AgentPanel token={token} apiUrl="/agent/recommendations" />
 
       {/* 4. Empty State or Split Layout */}
       {screenState === 'empty' ? (
         <div data-testid="student-dashboard-empty" className="state-card state-empty">
           <span className="state-mark" aria-hidden="true">✦</span>
-          <h2>Your first research chapter awaits</h2>
-          <p>Explore the Research Archive to find open questions and collaborate with faculty mentors.</p>
-          <a href="#/opportunities" className="button" style={{ textDecoration: 'none', marginTop: '10px' }}>
-            Browse open questions <span aria-hidden="true">→</span>
+          <h2>No research activities yet</h2>
+          <p>Explore open research opportunities and submit applications to start collaborating with faculty mentors.</p>
+          <a href="#/opportunities" className="button" style={{ textDecoration: 'none', marginTop: '8px' }}>
+            Browse open opportunities
           </a>
         </div>
       ) : (
         <div className="dashboard-split">
-          {/* Applications Section — "YOUR OPEN APPLICATIONS" */}
+          {/* Applications Section */}
           <section data-testid="student-dashboard-applications-section" className="dashboard-section">
             <div className="dashboard-section-header">
               <h2 className="dashboard-section-title">
-                Your Open Applications
+                My Applications
                 <span className="badge-count">{dashboardData.applications.length}</span>
               </h2>
-              <a href="#/my-applications" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-academy-deep)', textDecoration: 'none' }}>
-                View all ledger →
+              <a href="#/my-applications" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
+                View all →
               </a>
             </div>
 
@@ -256,7 +251,7 @@ export default function StudentDashboard({ token }) {
 
                     {app.faculty_comment && (
                       <div className="faculty-quote">
-                        <strong>Mentor Guidance:</strong>
+                        <strong>Faculty Note:</strong>
                         {app.faculty_comment}
                       </div>
                     )}
@@ -266,14 +261,14 @@ export default function StudentDashboard({ token }) {
             </ul>
           </section>
 
-          {/* Active Projects Section — "YOUR RESEARCH EXPEDITIONS" */}
+          {/* Active Projects & Milestones Section */}
           <section data-testid="student-dashboard-projects-section" className="dashboard-section">
             <div className="dashboard-section-header">
               <h2 className="dashboard-section-title">
-                Your Research Expeditions
+                Active Projects
                 <span className="badge-count">{dashboardData.projects.length}</span>
               </h2>
-              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-academy-deep)', textDecoration: 'none' }}>
+              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
                 Open workspace ↗
               </a>
             </div>
@@ -284,7 +279,6 @@ export default function StudentDashboard({ token }) {
                 const completedMs = (proj.milestones || []).filter(m => m.status === 'Completed').length;
                 const progressPct = totalMs > 0 ? Math.round((completedMs / totalMs) * 100) : 0;
                 const todayStr = new Date().toISOString().slice(0, 10);
-                const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV'];
 
                 return (
                   <li
@@ -301,14 +295,14 @@ export default function StudentDashboard({ token }) {
                             alignItems: 'center',
                             padding: '2px 8px',
                             borderRadius: '12px',
-                            background: '#EAE1D0',
-                            color: 'var(--color-academy-deep)',
+                            background: 'var(--color-sage-pale)',
+                            color: 'var(--color-teal)',
                             fontSize: '11px',
                             fontWeight: 600
                           }}>
-                            {proj.domain || 'Scholarship'}
+                            {proj.domain || 'Research'}
                           </span>
-                          <span style={{ fontSize: '11px', color: 'var(--color-ink-secondary)' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
                             Role: <strong>{proj.role_in_project || 'Member'}</strong>
                           </span>
                         </div>
@@ -317,40 +311,33 @@ export default function StudentDashboard({ token }) {
 
                     {totalMs > 0 && (
                       <div className="milestones-box">
-                        {/* Expedition Progression Header */}
-                        <div className="expedition-progress-header">
-                          <div className="expedition-progress-title">
-                            <span className="expedition-crest-icon" aria-hidden="true">⚜️</span>
-                            <div>
-                              <h4>Expedition Progression</h4>
-                              <span className="expedition-subtext">Chronicle of discovery milestones</span>
-                            </div>
-                          </div>
-                          <div className="expedition-progress-stats">
-                            <span className="expedition-ratio">
-                              <strong style={{ color: 'var(--color-gold-antique)' }}>{completedMs}</strong> of {totalMs} Chapters
-                            </span>
-                            <span className="expedition-pct-badge">{progressPct}% Unlocked</span>
-                          </div>
+                        <div className="milestones-box-title">
+                          <span>Milestones Progress</span>
+                          <span style={{ color: 'var(--color-teal)' }}>{completedMs} of {totalMs} completed ({progressPct}%)</span>
                         </div>
 
-                        {/* Illuminated Golden Track */}
-                        <div className="expedition-track-container">
-                          <div
-                            className="expedition-track-fill"
-                            style={{ width: `${progressPct}%` }}
-                          >
-                            <span className="expedition-track-star">✦</span>
-                          </div>
+                        {/* Progress Bar */}
+                        <div style={{
+                          height: '5px',
+                          background: '#e3e9de',
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                          marginBottom: '10px'
+                        }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${progressPct}%`,
+                            background: 'var(--color-teal)',
+                            borderRadius: '4px',
+                            transition: 'width 0.3s ease'
+                          }} />
                         </div>
 
-                        {/* Vertical Illuminated Quest Thread */}
-                        <div className="milestone-timeline-container">
+                        {/* Structured Milestone Items */}
+                        <div className="milestone-list" style={{ display: 'grid', gap: '8px', marginTop: '12px' }}>
                           {proj.milestones.map((ms, index) => {
                             const isDone = ms.status === 'Completed';
                             const isOverdue = !isDone && ms.target_date && ms.target_date < todayStr;
-                            const chapterNum = romanNumerals[index] || `${index + 1}`;
-
                             let formattedDate = 'No deadline';
                             if (ms.target_date) {
                               try {
@@ -365,28 +352,22 @@ export default function StudentDashboard({ token }) {
                             return (
                               <div
                                 key={ms.id}
-                                className={`milestone-timeline-item ${isDone ? 'is-done' : isOverdue ? 'is-overdue' : 'is-active'}`}
+                                className={`milestone-card-item ${isDone ? 'is-done' : isOverdue ? 'is-overdue' : 'is-pending'}`}
                               >
-                                {/* Heraldic Wax Seal Medallion */}
-                                <div className={`milestone-seal ${isDone ? 'seal-gold' : isOverdue ? 'seal-crimson' : 'seal-astrolabe'}`}>
-                                  {isDone ? '✓' : isOverdue ? '!' : chapterNum}
+                                <div className="milestone-card-header">
+                                  <div className="milestone-step-pill">
+                                    <span className="milestone-step-marker">{isDone ? '✓' : isOverdue ? '!' : (index + 1)}</span>
+                                    <span className="milestone-step-text">Milestone {index + 1}</span>
+                                  </div>
+                                  <span className={`milestone-status-tag ${isDone ? 'tag-completed' : isOverdue ? 'tag-overdue' : 'tag-pending'}`}>
+                                    {isDone ? 'Completed' : isOverdue ? 'Overdue' : 'In Progress'}
+                                  </span>
                                 </div>
-
-                                {/* Milestone Chronicle Body */}
-                                <div className="milestone-chronicle-card">
-                                  <div className="milestone-chronicle-top">
-                                    <span className="milestone-chapter-label">CHAPTER {chapterNum}</span>
-                                    <span className={`milestone-status-tag ${isDone ? 'tag-accomplished' : isOverdue ? 'tag-overdue' : 'tag-active'}`}>
-                                      {isDone ? '✦ Accomplished' : isOverdue ? '⚠️ Overdue' : '⦿ Active Quest'}
-                                    </span>
-                                  </div>
-                                  <p className="milestone-chronicle-title">{ms.description}</p>
-                                  <div className="milestone-chronicle-meta">
-                                    <span className="milestone-chronicle-date">
-                                      <span aria-hidden="true">⌛</span>
-                                      {isDone ? `Completed: ${formattedDate}` : isOverdue ? `Overdue since: ${formattedDate}` : `Target: ${formattedDate}`}
-                                    </span>
-                                  </div>
+                                <p className="milestone-card-desc">{ms.description}</p>
+                                <div className="milestone-card-footer">
+                                  <span className="milestone-card-date">
+                                    {isDone ? `Completed: ${formattedDate}` : isOverdue ? `Overdue since: ${formattedDate}` : `Target: ${formattedDate}`}
+                                  </span>
                                 </div>
                               </div>
                             );
