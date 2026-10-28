@@ -37,11 +37,10 @@ def register(body: RegisterIn, background_tasks: BackgroundTasks, db: Session = 
         raise HTTPException(status_code=400, detail="Registration failed") from None
     db.refresh(user)
     result = UserOut.model_validate(user).model_dump()
-    # Development/test convenience only; production verification uses the notifier.
+    if settings.smtp_host or settings.is_production:
+        background_tasks.add_task(send_verification_email, user.email, user.name, user.verify_token)
     if not settings.is_production:
         result["dev_verify_token"] = user.verify_token
-    else:
-        background_tasks.add_task(send_verification_email, user.email, user.name, user.verify_token)
     return result
 
 
