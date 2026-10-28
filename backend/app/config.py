@@ -1,5 +1,26 @@
 from functools import lru_cache
+from pathlib import Path
 import os
+
+# Automatically load .env from the project root or working directory
+for _env_candidate in [
+    Path(__file__).resolve().parent.parent.parent / ".env",
+    Path(__file__).resolve().parent.parent / ".env",
+    Path.cwd() / ".env",
+]:
+    if _env_candidate.is_file():
+        try:
+            with open(_env_candidate, "r", encoding="utf-8") as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if _line and not _line.startswith("#") and "=" in _line:
+                        _k, _v = _line.split("=", 1)
+                        _k, _v = _k.strip(), _v.strip().strip("'\"")
+                        if _k and _k not in os.environ:
+                            os.environ[_k] = _v
+        except Exception:
+            pass
+        break
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./researchbridge.db")
 AGENT_SERVICE_URL = os.environ.get("AGENT_SERVICE_URL", "http://localhost:8100")
