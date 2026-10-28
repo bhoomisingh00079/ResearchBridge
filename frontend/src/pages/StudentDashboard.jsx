@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import AgentPanel from '../components/AgentPanel';
 
 /**
- * Student Dashboard (FR-032, PLAN Section 6).
+ * Student Dashboard — "The Scholar's Chamber" (FR-032, PLAN Section 6).
  *
  * Implements the four mandated screen states:
  *   1. loading
@@ -86,8 +86,8 @@ export default function StudentDashboard({ token }) {
     return (
       <div data-testid="student-dashboard-loading" className="state-card state-loading">
         <span className="state-mark" aria-hidden="true">◌</span>
-        <h2>Gathering your research workspace…</h2>
-        <p>Loading your active applications, milestones, and project teams.</p>
+        <h2>Consulting The Scholar’s Chamber…</h2>
+        <p>Gathering your active applications, milestones, and collaborative research teams.</p>
       </div>
     );
   }
@@ -96,8 +96,8 @@ export default function StudentDashboard({ token }) {
     return (
       <div data-testid="student-dashboard-access-denied" className="state-card state-denied">
         <span className="state-mark" aria-hidden="true">⌑</span>
-        <h2>Student Access Required</h2>
-        <p>You must be signed in with a verified Student account to view this dashboard.</p>
+        <h2>Scholar Credentials Required</h2>
+        <p>You must be signed in with a verified Student account to enter this chamber.</p>
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default function StudentDashboard({ token }) {
     return (
       <div data-testid="student-dashboard-error" className="state-card state-error">
         <span className="state-mark" aria-hidden="true">!</span>
-        <h2>Service Unavailable</h2>
+        <h2>Chamber Unavailable</h2>
         <p>{errorMsg}</p>
       </div>
     );
@@ -114,25 +114,30 @@ export default function StudentDashboard({ token }) {
 
   return (
     <div data-testid="student-dashboard-container" className="dashboard-shell">
-      {/* 1. Redesigned Page Header */}
+      {/* 1. Header — The Scholar's Chamber */}
       <header className="dashboard-header">
         <div>
-          <div className="dashboard-kicker">Student Researcher Workspace</div>
+          <div className="dashboard-kicker">✦ THE SCHOLAR’S CHAMBER</div>
           <h1 className="dashboard-title" data-testid="student-dashboard-welcome">
-            Welcome, {dashboardData?.user?.name}
+            Your Research Journey
           </h1>
-          <p className="dashboard-subtitle">
-            Manage your applications, collaborate on active research projects, and track upcoming milestones.
+          <p className="dashboard-subtitle" data-testid="student-dashboard-greeting">
+            Welcome back, {dashboardData?.user?.name || 'Scholar'}. Every question you pursue opens another door.
           </p>
         </div>
         <div className="dashboard-actions">
-          <a href="#/opportunities" className="button" style={{ textDecoration: 'none' }}>
-            <span>Explore Opportunities</span> <span aria-hidden="true">→</span>
+          <a
+            href="#/opportunities"
+            className="button"
+            data-testid="student-dashboard-explore-btn"
+            style={{ textDecoration: 'none' }}
+          >
+            <span>Explore Research Archive</span> <span aria-hidden="true">→</span>
           </a>
         </div>
       </header>
 
-      {/* 2. Restrained Real Metrics Strip */}
+      {/* 2. Real Metrics Overview Strip */}
       <section className="metrics-strip" aria-label="Research overview metrics">
         <div className="metric-card">
           <div className="metric-eyebrow">
@@ -140,10 +145,10 @@ export default function StudentDashboard({ token }) {
             <span aria-hidden="true">⏳</span>
           </div>
           <div className="metric-value">{metrics.activeApps}</div>
-          <div className="metric-caption">Submitted or shortlisted</div>
+          <div className="metric-caption">Awaiting faculty review</div>
         </div>
 
-        <div className="metric-card metric-card-lime">
+        <div className="metric-card metric-card-accent">
           <div className="metric-eyebrow">
             <span>Accepted Offers</span>
             <span aria-hidden="true">✓</span>
@@ -154,47 +159,47 @@ export default function StudentDashboard({ token }) {
 
         <div className="metric-card metric-card-sage">
           <div className="metric-eyebrow">
-            <span>Active Projects</span>
+            <span>Active Expeditions</span>
             <span aria-hidden="true">◫</span>
           </div>
           <div className="metric-value">{metrics.activeProjects}</div>
           <div className="metric-caption">Enrolled lab teams</div>
         </div>
 
-        <div className="metric-card metric-card-accent">
+        <div className="metric-card metric-card-lime">
           <div className="metric-eyebrow">
             <span>Pending Milestones</span>
             <span aria-hidden="true">◷</span>
           </div>
           <div className="metric-value">{metrics.pendingMilestones}</div>
-          <div className="metric-caption">Deliverables in progress</div>
+          <div className="metric-caption">Expedition tasks in progress</div>
         </div>
       </section>
 
-      {/* 3. Redesigned AI Research Advisor */}
+      {/* 3. The Seer’s Compass: Advisory AI */}
       <AgentPanel token={token} apiUrl="/agent/recommendations" />
 
       {/* 4. Empty State or Split Layout */}
       {screenState === 'empty' ? (
         <div data-testid="student-dashboard-empty" className="state-card state-empty">
           <span className="state-mark" aria-hidden="true">✦</span>
-          <h2>No research activities yet</h2>
-          <p>Explore open research opportunities and submit applications to start collaborating with faculty mentors.</p>
-          <a href="#/opportunities" className="button" style={{ textDecoration: 'none', marginTop: '8px' }}>
-            Browse open opportunities
+          <h2>Your first research chapter awaits</h2>
+          <p>Explore the Research Archive to find open questions and collaborate with faculty mentors.</p>
+          <a href="#/opportunities" className="button" style={{ textDecoration: 'none', marginTop: '10px' }}>
+            Browse open questions <span aria-hidden="true">→</span>
           </a>
         </div>
       ) : (
         <div className="dashboard-split">
-          {/* Applications Section */}
+          {/* Applications Section — "YOUR OPEN APPLICATIONS" */}
           <section data-testid="student-dashboard-applications-section" className="dashboard-section">
             <div className="dashboard-section-header">
               <h2 className="dashboard-section-title">
-                My Applications
+                Your Open Applications
                 <span className="badge-count">{dashboardData.applications.length}</span>
               </h2>
-              <a href="#/my-applications" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
-                View all →
+              <a href="#/my-applications" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-academy-deep)', textDecoration: 'none' }}>
+                View all ledger →
               </a>
             </div>
 
@@ -251,7 +256,7 @@ export default function StudentDashboard({ token }) {
 
                     {app.faculty_comment && (
                       <div className="faculty-quote">
-                        <strong>Faculty Note:</strong>
+                        <strong>Mentor Guidance:</strong>
                         {app.faculty_comment}
                       </div>
                     )}
@@ -261,14 +266,14 @@ export default function StudentDashboard({ token }) {
             </ul>
           </section>
 
-          {/* Active Projects & Milestones Section */}
+          {/* Active Projects Section — "YOUR RESEARCH EXPEDITIONS" */}
           <section data-testid="student-dashboard-projects-section" className="dashboard-section">
             <div className="dashboard-section-header">
               <h2 className="dashboard-section-title">
-                Active Projects
+                Your Research Expeditions
                 <span className="badge-count">{dashboardData.projects.length}</span>
               </h2>
-              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
+              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-academy-deep)', textDecoration: 'none' }}>
                 Open workspace ↗
               </a>
             </div>
@@ -295,14 +300,14 @@ export default function StudentDashboard({ token }) {
                             alignItems: 'center',
                             padding: '2px 8px',
                             borderRadius: '12px',
-                            background: 'var(--color-sage-pale)',
-                            color: 'var(--color-teal)',
+                            background: '#EAE1D0',
+                            color: 'var(--color-academy-deep)',
                             fontSize: '11px',
                             fontWeight: 600
                           }}>
-                            {proj.domain || 'Research'}
+                            {proj.domain || 'Scholarship'}
                           </span>
-                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--color-ink-secondary)' }}>
                             Role: <strong>{proj.role_in_project || 'Member'}</strong>
                           </span>
                         </div>
@@ -312,14 +317,16 @@ export default function StudentDashboard({ token }) {
                     {totalMs > 0 && (
                       <div className="milestones-box">
                         <div className="milestones-box-title">
-                          <span>Milestones Progress</span>
-                          <span style={{ color: 'var(--color-teal)' }}>{completedMs} of {totalMs} completed ({progressPct}%)</span>
+                          <span>Expedition Milestones</span>
+                          <span style={{ color: 'var(--color-academy-deep)' }}>
+                            {completedMs} of {totalMs} completed ({progressPct}%)
+                          </span>
                         </div>
 
-                        {/* Progress Bar */}
+                        {/* Progress Bar in Antique Gold & Academy Green */}
                         <div style={{
-                          height: '5px',
-                          background: '#e3e9de',
+                          height: '6px',
+                          background: '#E5DDCB',
                           borderRadius: '4px',
                           overflow: 'hidden',
                           marginBottom: '10px'
@@ -327,14 +334,14 @@ export default function StudentDashboard({ token }) {
                           <div style={{
                             height: '100%',
                             width: `${progressPct}%`,
-                            background: 'var(--color-teal)',
+                            background: 'var(--color-gold-antique)',
                             borderRadius: '4px',
                             transition: 'width 0.3s ease'
                           }} />
                         </div>
 
-                        {/* Structured Compact Task Rows */}
-                        <div style={{ display: 'grid', gap: '4px' }}>
+                        {/* Structured Compact Task Rows with Scroll Containment */}
+                        <div className="milestone-tasks-scroll">
                           {proj.milestones.map((ms) => {
                             const isDone = ms.status === 'Completed';
                             const isOverdue = !isDone && ms.target_date && ms.target_date < todayStr;

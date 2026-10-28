@@ -4,73 +4,135 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>ResearchBridge · Project workspace</title>
+  <title>The Scholarium · Research Expedition Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="project-workspace.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="ResearchBridge home"><span class="brand-mark">R</span>ResearchBridge</a>
-    <span class="topbar-label">Research workspace</span>
-    <button class="button button-quiet" id="refresh-button" type="button">Refresh</button>
+    <a class="brand" href="/" aria-label="The Scholarium home">
+      <span class="brand-mark" aria-hidden="true">✦</span>
+      <span class="brand-title">Research<span style="color: var(--color-gold-pale);">Bridge</span> <small>THE SCHOLARIUM</small></span>
+    </a>
+    <span class="topbar-label">Expedition Workspace</span>
+    <button class="button button-quiet" id="refresh-button" type="button">↻ Refresh</button>
   </header>
   <main class="page" id="workspace" data-project-id="">
     <div class="page-heading">
-      <div><p class="eyebrow">PROJECT WORKSPACE</p><h1 id="project-title">Your research, in progress</h1>
-        <p class="subtitle">Keep milestones, shared resources and project updates together.</p></div>
-      <span class="project-state"><span class="state-dot" aria-hidden="true"></span>Active project</span>
+      <div>
+        <p class="eyebrow">✦ THE RESEARCH EXPEDITION</p>
+        <h1 id="project-title">Your Research, in Progress</h1>
+        <p class="subtitle">Document milestones, curate shared scholarship, and record expedition progress.</p>
+      </div>
+      <span class="project-state"><span class="state-dot" aria-hidden="true"></span>Active Expedition</span>
     </div>
     <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
     <nav class="tabs" aria-label="Project workspace sections">
       <button class="tab is-active" type="button" data-panel="milestones" aria-selected="true">Milestones</button>
-      <button class="tab" type="button" data-panel="resources" aria-selected="false">Resources</button>
-      <button class="tab" type="button" data-panel="activity" aria-selected="false">Activity</button>
-      <button class="tab" type="button" data-panel="letters" aria-selected="false">Recommendation letters</button>
+      <button class="tab" type="button" data-panel="resources" aria-selected="false">Shared Codex & Resources</button>
+      <button class="tab" type="button" data-panel="activity" aria-selected="false">Expedition Log</button>
+      <button class="tab" type="button" data-panel="letters" aria-selected="false">Recommendation Letters</button>
       <button class="tab" type="button" data-panel="notifications" aria-selected="false">Notifications <span class="unread-count" id="unread-count" hidden></span></button>
     </nav>
 
     <section class="panel" id="panel-milestones" aria-labelledby="milestones-heading">
-      <div class="section-heading"><div><h2 id="milestones-heading">Milestones</h2><p>Progress and due dates confirmed by your project.</p></div>
-        <button class="button button-primary" id="new-milestone" type="button">Add milestone</button></div>
-      <div class="progress-card"><div class="progress-copy"><span>Project progress</span><strong id="progress-label">Loading…</strong></div>
-        <div class="progress-track" role="progressbar" aria-label="Completed milestones" aria-valuemin="0" aria-valuemax="100" id="progress-track"><span id="progress-fill"></span></div></div>
-      <div class="list" id="milestone-list" aria-live="polite"><div class="loading"><span class="spinner" aria-hidden="true"></span>Loading milestones…</div></div>
+      <div class="section-heading">
+        <div>
+          <h2 id="milestones-heading">Expedition Milestones</h2>
+          <p>Progress and target dates confirmed by your research circle.</p>
+        </div>
+        <button class="button button-primary" id="new-milestone" type="button">＋ Add Milestone</button>
+      </div>
+      <div class="progress-card">
+        <div class="progress-copy">
+          <span>Expedition Progression</span>
+          <strong id="progress-label">Loading…</strong>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="Completed milestones" aria-valuemin="0" aria-valuemax="100" id="progress-track">
+          <span id="progress-fill"></span>
+        </div>
+      </div>
+      <div class="list" id="milestone-list" aria-live="polite">
+        <div class="loading"><span class="spinner" aria-hidden="true"></span>Consulting expedition milestones…</div>
+      </div>
     </section>
 
     <section class="panel" id="panel-resources" aria-labelledby="resources-heading" hidden>
-      <div class="section-heading"><div><h2 id="resources-heading">Shared resources</h2><p>Files and links available to project members.</p></div></div>
-      <form class="form-card" id="resource-form"><h3>Add a resource</h3><div class="form-grid">
-        <label>Title<input name="title" required maxlength="200" autocomplete="off"></label>
-        <label>Resource type<select name="type"><option>Link</option><option>Paper</option><option>Dataset</option><option>File</option></select></label>
-        <label class="wide" id="url-field">Link URL<input name="url" type="url" placeholder="https://…"></label>
-        <label class="wide">Description<textarea name="description" rows="2" maxlength="4000"></textarea></label>
-        <label class="wide" id="file-field" hidden>Choose a file<input name="file" type="file" accept=".pdf,.txt,.csv,.zip,.docx,.xlsx"></label>
-      </div><button class="button button-primary" type="submit">Save resource</button></form>
-      <div class="list" id="resource-list" aria-live="polite"><div class="loading"><span class="spinner" aria-hidden="true"></span>Loading resources…</div></div>
+      <div class="section-heading">
+        <div>
+          <h2 id="resources-heading">Curated Research Codex</h2>
+          <p>Papers, datasets, code repos, and archives accessible to team members.</p>
+        </div>
+      </div>
+      <form class="form-card" id="resource-form">
+        <h3>Add to Project Codex</h3>
+        <div class="form-grid">
+          <label>Title<input name="title" required maxlength="200" autocomplete="off"></label>
+          <label>Resource type<select name="type"><option>Link</option><option>Paper</option><option>Dataset</option><option>File</option></select></label>
+          <label class="wide" id="url-field">Link URL<input name="url" type="url" placeholder="https://…"></label>
+          <label class="wide">Description<textarea name="description" rows="2" maxlength="4000"></textarea></label>
+          <label class="wide" id="file-field" hidden>Choose a file<input name="file" type="file" accept=".pdf,.txt,.csv,.zip,.docx,.xlsx"></label>
+        </div>
+        <button class="button button-primary" type="submit">Save to Codex</button>
+      </form>
+      <div class="list" id="resource-list" aria-live="polite">
+        <div class="loading"><span class="spinner" aria-hidden="true"></span>Loading resources…</div>
+      </div>
     </section>
 
     <section class="panel" id="panel-activity" aria-labelledby="activity-heading" hidden>
-      <div class="section-heading"><div><h2 id="activity-heading">Project activity</h2><p>A chronological record of project updates.</p></div></div>
+      <div class="section-heading">
+        <div>
+          <h2 id="activity-heading">Expedition Log</h2>
+          <p>A chronological record of research developments and updates.</p>
+        </div>
+      </div>
       <div class="list" id="activity-list" aria-live="polite"></div>
-      <div class="pagination"><button class="button button-quiet" id="activity-prev" type="button">Previous</button><span id="activity-page">Page 1</span><button class="button button-quiet" id="activity-next" type="button">Next</button></div>
+      <div class="pagination">
+        <button class="button button-quiet" id="activity-prev" type="button">Previous</button>
+        <span id="activity-page">Page 1</span>
+        <button class="button button-quiet" id="activity-next" type="button">Next</button>
+      </div>
     </section>
 
     <section class="panel" id="panel-letters" aria-labelledby="letters-heading" hidden>
-      <div class="section-heading"><div><h2 id="letters-heading">Recommendation letters</h2><p>Requests and issued letters linked to your shared project history.</p></div></div>
-      <form class="form-card compact-form" id="letter-request-form"><h3>Request a letter</h3><label>Faculty member ID<input name="faculty_user_id" type="number" min="1" required></label><button class="button button-primary" type="submit">Send request</button></form>
+      <div class="section-heading">
+        <div>
+          <h2 id="letters-heading">Scholarly Letters of Recommendation</h2>
+          <p>Formal academic attestations linked to shared project achievements.</p>
+        </div>
+      </div>
+      <form class="form-card compact-form" id="letter-request-form">
+        <h3>Request Letter</h3>
+        <label>Faculty mentor ID<input name="faculty_user_id" type="number" min="1" required></label>
+        <button class="button button-primary" type="submit">Submit Request</button>
+      </form>
       <div class="list" id="letter-list" aria-live="polite"></div>
     </section>
 
     <section class="panel" id="panel-notifications" aria-labelledby="notifications-heading" hidden>
-      <div class="section-heading"><div><h2 id="notifications-heading">Notifications</h2><p>Reminders and updates for your account.</p></div></div>
+      <div class="section-heading">
+        <div>
+          <h2 id="notifications-heading">Expedition Notifications</h2>
+          <p>Chronological reminders and milestone changes for your circle.</p>
+        </div>
+      </div>
       <div class="list" id="notification-list" aria-live="polite"></div>
     </section>
   </main>
   <dialog id="milestone-dialog" aria-labelledby="milestone-dialog-title">
     <form method="dialog" class="dialog-close"><button class="icon-button" aria-label="Close dialog">×</button></form>
-    <h2 id="milestone-dialog-title">Add a milestone</h2>
-    <form id="milestone-form"><label>Milestone<input name="description" required maxlength="4000"></label>
-      <label>Target date<input name="target_date" type="date" required></label>
-      <div class="dialog-actions"><button class="button button-quiet" type="button" id="cancel-milestone">Cancel</button><button class="button button-primary" type="submit">Create milestone</button></div></form>
+    <h2 id="milestone-dialog-title">Add an Expedition Milestone</h2>
+    <form id="milestone-form">
+      <label>Milestone Description<input name="description" required maxlength="4000"></label>
+      <label>Target Date<input name="target_date" type="date" required></label>
+      <div class="dialog-actions">
+        <button class="button button-quiet" type="button" id="cancel-milestone">Cancel</button>
+        <button class="button button-primary" type="submit">Create Milestone</button>
+      </div>
+    </form>
   </dialog>
   <script type="module" src="project-workspace.js"></script>
 </body>
