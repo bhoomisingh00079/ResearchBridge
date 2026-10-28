@@ -102,7 +102,7 @@ html, body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 button, input, select, textarea {
@@ -153,16 +153,19 @@ textarea:focus-visible {
 
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 276px minmax(0, 1fr);
+  display: flex;
   background: var(--color-parchment);
   position: relative;
+  width: 100%;
 }
 
-/* Carved Oak & Gothic Arch Sidebar Rail */
+/* Carved Oak & Gothic Arch Sidebar Rail — Permanently Fixed Dock */
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  width: 276px;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -170,7 +173,7 @@ textarea:focus-visible {
   background: linear-gradient(180deg, #071512 0%, #0D221D 40%, #0A1B17 100%);
   border-right: 1px solid var(--color-gold-antique);
   box-shadow: 4px 0 28px rgba(7, 21, 18, 0.45);
-  z-index: 25;
+  z-index: 50;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -377,10 +380,14 @@ textarea:focus-visible {
 
 /* Main Column Container */
 .main-column {
+  margin-left: 276px;
+  width: calc(100% - 276px);
+  max-width: calc(100% - 276px);
   min-width: 0;
-  max-width: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
   overflow-x: hidden;
   background: var(--color-parchment);
 }
@@ -2389,19 +2396,22 @@ td small {
 /* Breakpoint 880px: Tablet & Mobile sidebar collapse */
 @media (max-width: 880px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    display: block;
   }
   .sidebar {
     display: none;
+    left: -280px;
   }
   .sidebar.mobile-open {
     display: flex;
-    position: fixed;
-    top: 0;
     left: 0;
     width: 280px;
-    height: 100vh;
     z-index: 100;
+  }
+  .main-column {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
   }
   .mobile-brand {
     display: flex;
