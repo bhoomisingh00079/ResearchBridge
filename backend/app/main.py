@@ -37,6 +37,14 @@ def create_app() -> FastAPI:
     application.add_middleware(CORSMiddleware, allow_origins=list(settings.frontend_origins),
                                allow_credentials=False, allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                                allow_headers=["*"])
+
+    import re
+
+    @application.middleware("http")
+    async def normalize_slashes_middleware(request, call_next):
+        if "//" in request.scope.get("path", ""):
+            request.scope["path"] = re.sub(r"/+", "/", request.scope["path"])
+        return await call_next(request)
     # Member B's paths precede the earlier workspace prototypes where paths
     # overlap, so membership-checked handlers remain the active endpoints.
     application.include_router(member_b_router)

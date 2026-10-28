@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://researchbridge-r327.onrender.com";
+const rawBase = import.meta.env.VITE_API_BASE_URL || "https://researchbridge-r327.onrender.com";
+const API_BASE = rawBase.replace(/\/+$/, "");
 
 export class ApiError extends Error {
   constructor(status, message, payload) {
@@ -13,9 +14,11 @@ export async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = `${API_BASE}${normalizedPath}`;
   let response;
   try {
-    response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    response = await fetch(url, { ...options, headers });
   } catch {
     throw new ApiError(0, "The ResearchBridge API could not be reached.");
   }
