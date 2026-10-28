@@ -268,7 +268,13 @@ export default function StudentDashboard({ token }) {
                 Active Projects
                 <span className="badge-count">{dashboardData.projects.length}</span>
               </h2>
-              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
+              <a
+                href={dashboardData.projects?.[0]?.project_id ? `/workspace?project=${dashboardData.projects[0].project_id}` : '/workspace'}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}
+                data-testid="student-dashboard-open-workspace"
+              >
                 Open workspace ↗
               </a>
             </div>
@@ -287,25 +293,37 @@ export default function StudentDashboard({ token }) {
                     className="feed-card"
                   >
                     <div className="feed-card-header">
-                      <div>
-                        <h3 className="feed-card-title">{proj.title}</h3>
-                        <div className="feed-card-meta" style={{ marginTop: '4px' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            background: 'var(--color-sage-pale)',
-                            color: 'var(--color-teal)',
-                            fontSize: '11px',
-                            fontWeight: 600
-                          }}>
-                            {proj.domain || 'Research'}
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                            Role: <strong>{proj.role_in_project || 'Member'}</strong>
-                          </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                        <div>
+                          <h3 className="feed-card-title">{proj.title}</h3>
+                          <div className="feed-card-meta" style={{ marginTop: '4px' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: 'var(--color-sage-pale)',
+                              color: 'var(--color-teal)',
+                              fontSize: '11px',
+                              fontWeight: 600
+                            }}>
+                              {proj.domain || 'Research'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                              Role: <strong>{proj.role_in_project || 'Member'}</strong>
+                            </span>
+                          </div>
                         </div>
+                        <a
+                          href={`/workspace?project=${proj.project_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="button button-quiet"
+                          style={{ minHeight: '28px', padding: '0 10px', fontSize: '11px', textDecoration: 'none' }}
+                          data-testid={`student-dashboard-proj-workspace-${proj.project_id}`}
+                        >
+                          Open workspace ↗
+                        </a>
                       </div>
                     </div>
 

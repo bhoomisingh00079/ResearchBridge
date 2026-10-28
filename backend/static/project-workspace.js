@@ -1,7 +1,7 @@
 const root = document.querySelector("#workspace");
-const projectId = new URLSearchParams(location.search).get("project") || root.dataset.projectId;
-const token = sessionStorage.getItem("rb-token");
-const apiBase = (localStorage.getItem("rb_api_base") || "").replace(/\/$/, "");
+let projectId = new URLSearchParams(location.search).get("project") || root.dataset.projectId;
+const token = sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
+const apiBase = (localStorage.getItem("rb_api_base") || "https://researchbridge-r327.onrender.com").replace(/\/$/, "");
 const notice = document.querySelector("#notice");
 const activityPageSize = 20;
 let activityPage = 1;
@@ -273,5 +273,31 @@ document.querySelector("#letter-request-form").addEventListener("submit", async 
   catch (error) { setNotice(error.message, "error"); }
 });
 
-if (!projectId) document.querySelector("#project-title").textContent = "Research workspace";
-loadPanel("milestones");
+
+async function initWorkspace() {
+  if (!token) {
+    setNotice("Please sign in to view your research project workspace.", "error");
+    return;
+  }
+  if (!projectId) {
+    try {
+      const studentDash = await api("/dashboard/student").catch(() => null);
+      const facultyDash = !studentDash ? await api("/dashboard/faculty").catch(() => null) : null;
+      const projs = (studentDash && studentDash.projects) || (facultyDash && facultyDash.projects) || [];
+      if (projs.length > 0) {
+        projectId = String(projs[0].project_id || projs[0].id);
+        const titleEl = document.querySelector("#project-title");
+        if (titleEl && projs[0].title) titleEl.textContent = projs[0].title;
+      }
+    } catch (e) {
+      console.warn("Could not auto-resolve project", e);
+    }
+  }
+  if (!projectId) {
+    document.querySelector("#project-title").textContent = "Research workspace";
+  }
+  await loadPanel("milestones");
+}
+
+initWorkspace();
+

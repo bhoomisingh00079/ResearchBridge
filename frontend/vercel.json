@@ -1,7 +1,15 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/workspace",
+      "destination": "/workspace/index.html"
+    },
+    {
+      "source": "/workspace/(.*)",
+      "destination": "/workspace/$1"
+    },
+    {
+      "source": "/((?!workspace).*)",
       "destination": "/index.html"
     }
   ]

@@ -79,6 +79,8 @@ function App() {
 
   async function signedIn(token) {
     sessionStorage.setItem("rb-token", token);
+    localStorage.setItem("rb-token", token);
+    localStorage.setItem("rb_api_base", "https://researchbridge-r327.onrender.com");
     const data = await api("/me");
     setUser(data);
     go("dashboard");
@@ -86,6 +88,7 @@ function App() {
 
   function signOut() {
     sessionStorage.removeItem("rb-token");
+    localStorage.removeItem("rb-token");
     setUser(null);
     go("home");
   }
@@ -112,6 +115,11 @@ function App() {
     if (route.page === "create") return <CreateOpportunity user={user} />;
     if (route.page === "review") return <ApplicantReview id={route.id} user={user} />;
     if (route.page === "admin") return <AdminUsers user={user} />;
+    if (route.page === "workspace") {
+      const params = new URLSearchParams(window.location.search);
+      const pid = params.get("project") || (window.location.hash.includes("?") ? new URLSearchParams(window.location.hash.split("?")[1]).get("project") : "");
+      return <WorkspacePage user={user} projectId={pid} />;
+    }
     return <PageState kind="empty" title="Page not found" message="Use the navigation to find a ResearchBridge workspace." />;
   }, [authLoading, route, user]);
 
@@ -654,6 +662,47 @@ function ApplicationCard({ item, busy, onDecision }) {
 function StatusBadge({ status }) {
   const kind = status === "Accepted" || status === "Published" ? "good" : status === "Rejected" || status === "Closed" ? "muted" : status === "Shortlisted" ? "accent" : "warm";
   return <span className={`status-pill status-${kind}`}>{status}</span>;
+}
+
+function WorkspacePage({ user, projectId }) {
+  const iframeSrc = `/workspace/index.html${projectId ? `?project=${encodeURIComponent(projectId)}` : ''}`;
+
+  return (
+    <div className="content-wrap" style={{ maxWidth: '100%', padding: '0 8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <div className="eyebrow">ACTIVE RESEARCH</div>
+          <h1 style={{ margin: '4px 0', fontSize: '24px', color: 'var(--color-teal)' }}>Project Workspace</h1>
+          <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '13px' }}>
+            Collaborative milestones, shared resources, activity logs, and recommendation letters.
+          </p>
+        </div>
+        <a
+          href={iframeSrc}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="button button-secondary"
+          style={{ fontSize: '12px', minHeight: '34px' }}
+        >
+          Open in Full Window ↗
+        </a>
+      </div>
+      <div style={{
+        borderRadius: 12,
+        overflow: 'hidden',
+        border: '1px solid var(--color-border)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        background: '#fff',
+        minHeight: '75vh'
+      }}>
+        <iframe
+          src={iframeSrc}
+          title="Project Workspace"
+          style={{ width: '100%', height: '78vh', border: 'none', display: 'block' }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function AdminUsers({ user }) {
