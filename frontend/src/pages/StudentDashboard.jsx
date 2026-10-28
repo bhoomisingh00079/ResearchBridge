@@ -269,7 +269,7 @@ export default function StudentDashboard({ token }) {
                 <span className="badge-count">{dashboardData.projects.length}</span>
               </h2>
               <a
-                href={dashboardData.projects?.[0]?.project_id ? `/workspace?project=${dashboardData.projects[0].project_id}` : '/workspace'}
+                href={dashboardData.projects?.[0]?.project_id ? `/workspace?project=${dashboardData.projects[0].project_id}&token=${encodeURIComponent(token)}` : `/workspace?token=${encodeURIComponent(token)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}
@@ -315,7 +315,7 @@ export default function StudentDashboard({ token }) {
                           </div>
                         </div>
                         <a
-                          href={`/workspace?project=${proj.project_id}`}
+                          href={`/workspace?project=${proj.project_id}&token=${encodeURIComponent(token)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="button button-quiet"

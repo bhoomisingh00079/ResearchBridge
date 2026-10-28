@@ -1,6 +1,18 @@
 const root = document.querySelector("#workspace");
-let projectId = new URLSearchParams(location.search).get("project") || root.dataset.projectId;
-const token = sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
+const urlParams = new URLSearchParams(location.search);
+let token = urlParams.get("token") || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
+if (token) {
+  sessionStorage.setItem("rb-token", token);
+  localStorage.setItem("rb-token", token);
+}
+if (urlParams.has("token")) {
+  urlParams.delete("token");
+  const newSearch = urlParams.toString();
+  const newUrl = location.pathname + (newSearch ? `?${newSearch}` : "") + location.hash;
+  history.replaceState(null, "", newUrl);
+}
+
+let projectId = urlParams.get("project") || (location.hash.includes("project=") ? new URLSearchParams(location.hash.split("?")[1] || "").get("project") : "") || root.dataset.projectId;
 const apiBase = (localStorage.getItem("rb_api_base") || "https://researchbridge-r327.onrender.com").replace(/\/$/, "");
 const notice = document.querySelector("#notice");
 const activityPageSize = 20;
@@ -8,7 +20,7 @@ let activityPage = 1;
 let activePanel = "milestones";
 
 function setNotice(message, kind = "info") {
-  notice.textContent = message;
+  notice.innerHTML = message;
   notice.dataset.kind = kind;
   notice.hidden = !message;
 }
@@ -119,9 +131,8 @@ async function loadMilestones() {
       list.append(wrapper);
     }
     const percent = Math.round((completed / rows.length) * 100);
-    document.querySelector("#progress-label").textContent = `${completed} of ${rows.length} completed`;
+    document.querySelector("#progress-label").textContent = `${completed} of ${rows.length} completed (${percent}%)`;
     document.querySelector("#progress-fill").style.width = `${percent}%`;
-    document.querySelector("#progress-track").setAttribute("aria-valuenow", String(percent));
   } catch (error) { showFailure(error, list); }
 }
 
@@ -129,17 +140,22 @@ async function loadResources() {
   const list = document.querySelector("#resource-list");
   try {
     const rows = await api(`/projects/${encodeURIComponent(projectId)}/resources`);
-    if (!rows.length) return empty(list, "No shared resources yet. Add a paper, dataset or link for the team.");
+    if (!rows.length) return empty(list, "No shared resources yet.");
     list.replaceChildren();
     for (const item of rows) {
-      const wrapper = card(); const row = document.createElement("div"); row.className = "row";
-      const copy = document.createElement("div"); const title = document.createElement("h3"); title.textContent = item.title;
-      const description = document.createElement("p"); description.textContent = item.description || item.type;
-      copy.append(title, description);
-      const meta = document.createElement("div"); meta.className = "row-meta"; meta.append(badge(item.type)); row.append(copy, meta); wrapper.append(row);
-      if (item.link_url) { const link = document.createElement("a"); link.className = "link-resource"; link.href = item.link_url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "Open link"; wrapper.append(link); }
-      if (item.has_file) { const download = document.createElement("a"); download.className = "link-resource"; download.href = `${apiBase}/resources/${item.id}/download`; download.textContent = "Download file"; download.setAttribute("aria-label", `Download ${item.title}`); download.addEventListener("click", async (event) => { event.preventDefault(); try { const response = await fetch(download.href, { headers: authHeaders() }); if (!response.ok) throw new Error(response.status === 403 ? "Access denied for this project." : "File download failed."); const blob = await response.blob(); const objectUrl = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = objectUrl; a.download = item.title; a.click(); URL.revokeObjectURL(objectUrl); } catch (error) { setNotice(error.message, "error"); } }); wrapper.append(download); }
-      list.append(wrapper);
+      const wrapper = card();
+      const row = document.createElement("div"); row.className = "row";
+      const copy = document.createElement("div");
+      const title = document.createElement("h3");
+      if (item.url) {
+        const link = document.createElement("a"); link.href = item.url; link.target = "_blank"; link.rel = "noreferrer";
+        link.className = "link-resource"; link.textContent = item.title; title.append(link);
+      } else { title.textContent = item.title; }
+      const desc = document.createElement("p"); desc.textContent = item.description || "No description provided.";
+      copy.append(title, desc);
+      const meta = document.createElement("div"); meta.className = "row-meta";
+      meta.append(badge(item.type));
+      row.append(copy, meta); wrapper.append(row); list.append(wrapper);
     }
   } catch (error) { showFailure(error, list); }
 }
@@ -148,19 +164,19 @@ async function loadActivity() {
   const list = document.querySelector("#activity-list");
   try {
     const page = await api(`/projects/${encodeURIComponent(projectId)}/activity?page=${activityPage}&page_size=${activityPageSize}`);
-    if (!page.items.length && activityPage === 1) return empty(list, "Project updates will appear here as work progresses.");
+    document.querySelector("#activity-page").textContent = `Page ${activityPage}`;
+    document.querySelector("#activity-prev").disabled = activityPage <= 1;
+    document.querySelector("#activity-next").disabled = (page.items || []).length < activityPageSize;
+    if (!page.items || !page.items.length) return empty(list, "No recorded activity yet.");
     list.replaceChildren();
     for (const item of page.items) {
-      const wrapper = card(); const row = document.createElement("div"); row.className = "activity-row";
-      const dot = document.createElement("span"); dot.className = "timeline-dot"; dot.setAttribute("aria-hidden", "true");
-      const copy = document.createElement("div"); const action = document.createElement("h3"); action.textContent = item.action;
-      const detail = document.createElement("p"); detail.textContent = `${item.entity_type} · ${item.actor_user_id ? `Member ${item.actor_user_id}` : "System"}`;
-      const time = document.createElement("time"); time.dateTime = item.timestamp; time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.timestamp));
-      copy.append(action, detail, time); row.append(dot, copy); wrapper.append(row); list.append(wrapper);
+      const wrapper = card("activity-row");
+      const dot = document.createElement("span"); dot.className = "timeline-dot";
+      const copy = document.createElement("div");
+      const message = document.createElement("strong"); message.textContent = item.action;
+      const time = document.createElement("time"); time.textContent = new Date(item.timestamp).toLocaleString();
+      copy.append(message, time); wrapper.append(dot, copy); list.append(wrapper);
     }
-    document.querySelector("#activity-page").textContent = `Page ${page.page}`;
-    document.querySelector("#activity-prev").disabled = page.page <= 1;
-    document.querySelector("#activity-next").disabled = !page.has_more;
   } catch (error) { showFailure(error, list); }
 }
 
@@ -169,16 +185,30 @@ async function loadNotifications() {
   try {
     const rows = await api("/notifications");
     const unread = rows.filter((item) => !item.read).length;
-    const count = document.querySelector("#unread-count"); count.textContent = String(unread); count.hidden = unread === 0;
-    if (!rows.length) return empty(list, "You’re all caught up. New reminders and updates will show here.");
+    const badgeEl = document.querySelector("#unread-count");
+    badgeEl.textContent = String(unread);
+    badgeEl.hidden = unread === 0;
+    if (!rows.length) return empty(list, "You have no notifications.");
     list.replaceChildren();
     for (const item of rows) {
-      const wrapper = card(); const row = document.createElement("div"); row.className = "row";
-      const copy = document.createElement("div"); const title = document.createElement("h3"); title.textContent = item.type;
-      const message = document.createElement("p"); message.textContent = item.message;
-      const time = document.createElement("p"); time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.created_at));
-      copy.append(title, message, time); row.append(copy, badge(item.read ? "Read" : "Unread", item.read ? "" : "badge-warning")); wrapper.append(row);
-      if (!item.read) { const action = document.createElement("button"); action.className = "small-button"; action.type = "button"; action.textContent = "Mark as read"; action.addEventListener("click", async () => { try { await api(`/notifications/${item.id}/read`, { method: "POST" }); await loadNotifications(); } catch (error) { setNotice(error.message, "error"); } }); wrapper.append(action); }
+      const wrapper = card();
+      const row = document.createElement("div"); row.className = "row";
+      const copy = document.createElement("div");
+      const title = document.createElement("h3"); title.textContent = item.title;
+      const body = document.createElement("p"); body.textContent = item.message;
+      copy.append(title, body);
+      const meta = document.createElement("div"); meta.className = "row-meta";
+      meta.append(badge(item.read ? "Read" : "New", item.read ? "" : "badge-warning"));
+      row.append(copy, meta); wrapper.append(row);
+      if (!item.read) {
+        const action = document.createElement("button"); action.className = "small-button"; action.type = "button";
+        action.textContent = "Mark as read";
+        action.addEventListener("click", async () => {
+          try { await api(`/notifications/${item.id}/read`, { method: "POST" }); await loadNotifications(); }
+          catch (error) { setNotice(error.message, "error"); }
+        });
+        wrapper.append(action);
+      }
       list.append(wrapper);
     }
   } catch (error) { showFailure(error, list); }
@@ -188,28 +218,41 @@ async function loadLetters() {
   const list = document.querySelector("#letter-list");
   try {
     const rows = await api("/lor/mine");
-    if (!rows.length) return empty(list, "Letters and requests connected to your project history will appear here.");
+    if (!rows.length) return empty(list, "No letters requested or issued yet.");
     list.replaceChildren();
     for (const item of rows) {
-      const wrapper = card(); const row = document.createElement("div"); row.className = "row";
-      const copy = document.createElement("div"); const title = document.createElement("h3"); title.textContent = item.status === "Requested" ? "Letter request" : "Recommendation letter";
-      const detail = document.createElement("p"); detail.textContent = `Faculty member ${item.faculty_user_id} · Student ${item.student_user_id}`;
-      copy.append(title, detail); const meta = document.createElement("div"); meta.className = "row-meta"; meta.append(badge(item.status, statusClass(item.status))); row.append(copy, meta); wrapper.append(row);
-      if (item.status === "Requested" && item.faculty_user_id === currentUserId()) {
+      const wrapper = card();
+      const row = document.createElement("div"); row.className = "row";
+      const copy = document.createElement("div");
+      const title = document.createElement("h3");
+      title.textContent = item.status === "Issued" ? "Recommendation letter" : `Recommendation request (${item.status})`;
+      const details = document.createElement("p");
+      details.textContent = item.body || "No letter body available.";
+      copy.append(title, details);
+      const meta = document.createElement("div"); meta.className = "row-meta";
+      meta.append(badge(item.status, statusClass(item.status)));
+      row.append(copy, meta); wrapper.append(row);
+      if (item.faculty_user_id === currentUserId() && item.status === "Requested") {
         const actions = document.createElement("div"); actions.className = "row-actions";
-        for (const decision of ["Issued", "Declined"]) {
-          const button = document.createElement("button"); button.className = "small-button"; button.type = "button"; button.textContent = decision === "Issued" ? "Issue letter" : "Decline request";
-          button.addEventListener("click", async () => {
-            const body = decision === "Issued" ? prompt("Write the recommendation letter") : null;
-            if (decision === "Issued" && !body?.trim()) return;
-            try { await api(`/lor/${item.id}/decide`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision, body }) }); setNotice(`Request ${decision.toLowerCase()}.`, "success"); await loadLetters(); }
-            catch (error) { setNotice(error.message, "error"); }
-          }); actions.append(button);
-        }
-        wrapper.append(actions);
+        const issue = document.createElement("button"); issue.className = "small-button"; issue.type = "button"; issue.textContent = "Issue letter";
+        issue.addEventListener("click", async () => {
+          const body = window.prompt("Write your recommendation letter:");
+          if (!body) return;
+          await decideLetter(item.id, "Issue", body);
+        });
+        const decline = document.createElement("button"); decline.className = "small-button"; decline.type = "button"; decline.textContent = "Decline";
+        decline.addEventListener("click", () => decideLetter(item.id, "Decline", ""));
+        actions.append(issue, decline); wrapper.append(actions);
       }
-      const summary = document.createElement("button"); summary.className = "small-button"; summary.type = "button"; summary.textContent = "View project summary";
-      summary.addEventListener("click", async () => { try { const data = await api(`/lor/${item.id}/summary`); setNotice(`Project summary · ${data.milestones.completed}/${data.milestones.total} milestones and ${data.tasks.completed}/${data.tasks.total} tasks completed.`, "success"); } catch (error) { setNotice(error.message, "error"); } }); wrapper.append(summary);
+      const summary = document.createElement("button"); summary.className = "small-button"; summary.type = "button";
+      summary.textContent = "View project snapshot";
+      summary.addEventListener("click", async () => {
+        try {
+          const data = await api(`/lor/${item.id}/summary`);
+          setNotice(`Project summary · ${data.milestones.completed}/${data.milestones.total} milestones and ${data.tasks.completed}/${data.tasks.total} tasks completed.`, "success");
+        } catch (error) { setNotice(error.message, "error"); }
+      });
+      wrapper.append(summary);
       list.append(wrapper);
     }
   } catch (error) { showFailure(error, list); }
@@ -219,8 +262,19 @@ function currentUserId() {
   try { return Number(JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub); } catch { return -1; }
 }
 
+async function decideLetter(id, decision, body) {
+  try {
+    await api(`/lor/${id}/decide`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision, body }) });
+    setNotice(`Request ${decision.toLowerCase()}.`, "success");
+    await loadLetters();
+  } catch (error) { setNotice(error.message, "error"); }
+}
+
 async function loadPanel(name) {
-  if (!projectId && name !== "notifications" && name !== "letters") { setNotice("Open a project using its project link to load this workspace.", "error"); return; }
+  if (!projectId && name !== "notifications" && name !== "letters") {
+    setNotice("Open a project using its project link to load this workspace.", "error");
+    return;
+  }
   setNotice("");
   if (name === "milestones") await loadMilestones();
   if (name === "resources") await loadResources();
@@ -273,10 +327,10 @@ document.querySelector("#letter-request-form").addEventListener("submit", async 
   catch (error) { setNotice(error.message, "error"); }
 });
 
-
 async function initWorkspace() {
   if (!token) {
-    setNotice("Please sign in to view your research project workspace.", "error");
+    setNotice("Please sign in to view your research project workspace. <a href='/#/login' style='color:var(--color-teal);font-weight:700;text-decoration:underline;margin-left:8px;'>Sign in →</a>", "error");
+    document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">Sign in to your ResearchBridge account to view your project workspace.</p><a href="/#/login" class="button button-primary" style="text-decoration:none;display:inline-block;">Sign in to continue →</a></div>';
     return;
   }
   if (!projectId) {
@@ -288,6 +342,10 @@ async function initWorkspace() {
         projectId = String(projs[0].project_id || projs[0].id);
         const titleEl = document.querySelector("#project-title");
         if (titleEl && projs[0].title) titleEl.textContent = projs[0].title;
+      } else {
+        document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">No active project enrolled yet. Browse open faculty opportunities to join a research team.</p><a href="/#/opportunities" class="button button-primary" style="text-decoration:none;display:inline-block;">Explore Opportunities →</a></div>';
+        setNotice("You do not have any active research projects yet. Once accepted into a project, your lab workspace will appear here.", "info");
+        return;
       }
     } catch (e) {
       console.warn("Could not auto-resolve project", e);
@@ -300,4 +358,3 @@ async function initWorkspace() {
 }
 
 initWorkspace();
-

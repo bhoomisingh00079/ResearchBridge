@@ -262,7 +262,12 @@ export default function FacultyDashboard({ token }) {
                 Active Projects
                 <span className="badge-count">{data?.active_projects?.length ?? 0}</span>
               </h2>
-              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
+              <a
+                href={data?.active_projects?.[0]?.id ? `/workspace?project=${data.active_projects[0].id}&token=${encodeURIComponent(token)}` : `/workspace?token=${encodeURIComponent(token)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}
+              >
                 Open workspace ↗
               </a>
             </div>

@@ -70,7 +70,13 @@ function App() {
 
   useEffect(() => {
     let live = true;
-    if (!sessionStorage.getItem("rb-token")) { setAuthLoading(false); return () => { live = false; }; }
+    const existingToken = sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
+    if (existingToken) {
+      sessionStorage.setItem("rb-token", existingToken);
+      localStorage.setItem("rb-token", existingToken);
+      localStorage.setItem("rb_api_base", "https://researchbridge-r327.onrender.com");
+    }
+    if (!existingToken) { setAuthLoading(false); return () => { live = false; }; }
     api("/me").then((data) => { if (live) setUser(data); })
       .catch(() => { sessionStorage.removeItem("rb-token"); if (live) setUser(null); })
       .finally(() => { if (live) setAuthLoading(false); });
@@ -137,7 +143,7 @@ function App() {
         {user?.role === "Faculty" && <a href="#/my-opportunities" data-testid="nav-my-opportunities"><span aria-hidden="true">▤</span> My opportunities</a>}
         {user?.role === "Student" && <a href="#/my-applications" data-testid="nav-my-applications"><span aria-hidden="true">◷</span> My applications</a>}
         {user && <a href="#/profile" data-testid="nav-profile"><span aria-hidden="true">◉</span> My profile</a>}
-        {user && <a href="/workspace" target="_blank" rel="noopener noreferrer" data-testid="nav-workspace"><span aria-hidden="true">▤</span> Project workspace ↗</a>}
+        {user && <a href={`/workspace?token=${encodeURIComponent(sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "")}`} target="_blank" rel="noopener noreferrer" data-testid="nav-workspace"><span aria-hidden="true">▤</span> Project workspace ↗</a>}
         {user?.role === "Administrator" && <a href="#/admin" data-testid="nav-admin"><span aria-hidden="true">▤</span> User administration</a>}
       </nav>
       <div className="sidebar-note"><span className="note-orbit" aria-hidden="true">✳</span><strong>Good research grows together.</strong><p>Find a question worth asking, then find your people.</p></div>
