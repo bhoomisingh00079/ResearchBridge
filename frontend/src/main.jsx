@@ -7,7 +7,10 @@ import CoordinatorDashboard from "./pages/CoordinatorDashboard.jsx";
 import "./styles.css";
 
 function currentRoute() {
-  const parts = window.location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const hash = window.location.hash.replace(/^#\/?/, "");
+  const path = window.location.pathname.replace(/^\//, "");
+  const routeString = hash || path;
+  const parts = routeString.split("/").filter(Boolean);
   if (!parts.length) return { page: "home" };
   if (parts[0] === "opportunities" && parts[1]) return { page: "opportunity", id: parts[1] };
   if (parts[0] === "edit" && parts[1]) return { page: "edit", id: parts[1] };

@@ -58,6 +58,7 @@ def verify_account(token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/auth/login", response_model=TokenOut)
+@router.post("/login", response_model=TokenOut, include_in_schema=False)
 def login(body: LoginIn, db: Session = Depends(get_db)):
     email = body.email.strip().casefold()
     user = db.query(User).filter(User.email == email).first()
