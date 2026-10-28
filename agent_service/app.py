@@ -10,8 +10,12 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from .matching import match_opportunities, suggest_collaborators, suggest_resources
-from .progress import milestone_alerts, opportunity_alerts
+try:
+    from .matching import match_opportunities, suggest_collaborators, suggest_resources
+    from .progress import milestone_alerts, opportunity_alerts
+except ImportError:
+    from matching import match_opportunities, suggest_collaborators, suggest_resources
+    from progress import milestone_alerts, opportunity_alerts
 
 
 class Student(BaseModel):
