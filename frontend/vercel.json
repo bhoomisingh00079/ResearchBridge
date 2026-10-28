@@ -1,5 +1,22 @@
 {
+  "cleanUrls": false,
   "rewrites": [
+    {
+      "source": "/workspace/project-workspace.css",
+      "destination": "/workspace/project-workspace.css"
+    },
+    {
+      "source": "/workspace/project-workspace.js",
+      "destination": "/workspace/project-workspace.js"
+    },
+    {
+      "source": "/project-workspace.css",
+      "destination": "/project-workspace.css"
+    },
+    {
+      "source": "/project-workspace.js",
+      "destination": "/project-workspace.js"
+    },
     {
       "source": "/workspace",
       "destination": "/workspace/index.html"
@@ -9,7 +26,7 @@
       "destination": "/workspace/$1"
     },
     {
-      "source": "/((?!workspace).*)",
+      "source": "/((?!workspace|project-workspace).*)",
       "destination": "/index.html"
     }
   ]
