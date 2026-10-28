@@ -31,11 +31,11 @@ except ImportError:  # pragma: no cover - exercised by the backend container ent
 try:
     from app.db import get_db
     from app.deps import current_user
-    from app.models import ProjectMember, User
+    from app.models import Milestone, ProjectMember, Task, User
 except ImportError:  # package import during local development
     from .app.db import get_db
     from .app.deps import current_user
-    from .app.models import ProjectMember, User
+    from .app.models import Milestone, ProjectMember, Task, User
 
 
 router = APIRouter(tags=["Member B"])
@@ -49,7 +49,7 @@ class Principal:
 
 
 def principal(user: User = Depends(current_user), db: Session = Depends(get_db)) -> Principal:
-    """Use the shared auth dependency and synchronize current project membership."""
+    """Use the shared auth dependency and synchronize current project membership, milestones, and tasks."""
     memberships = db.query(ProjectMember).all()
     all_users = {item.id: item for item in db.query(User).all()}
     workspace.memberships = {}
@@ -59,6 +59,33 @@ def principal(user: User = Depends(current_user), db: Session = Depends(get_db))
         member = all_users.get(membership.user_id)
         if member and member.role == "Faculty":
             workspace.faculty_by_project.setdefault(membership.project_id, set()).add(member.id)
+
+    # Sync database milestones into in-memory workspace
+    db_milestones = db.query(Milestone).all()
+    for m in db_milestones:
+        m_id = m.id
+        t_date = m.target_date.isoformat() if hasattr(m.target_date, "isoformat") else str(m.target_date)
+        c_at = m.completed_at.isoformat() if m.completed_at and hasattr(m.completed_at, "isoformat") else None
+        workspace.milestones[m_id] = {
+            "id": m_id,
+            "project_id": m.project_id,
+            "description": m.description,
+            "target_date": t_date,
+            "status": m.status,
+            "completed_at": c_at,
+        }
+
+    # Sync database tasks into in-memory workspace
+    db_tasks = db.query(Task).all()
+    for t in db_tasks:
+        workspace.tasks[t.id] = {
+            "id": t.id,
+            "milestone_id": t.milestone_id,
+            "description": t.description,
+            "status": t.status,
+            "assigned_to": t.assigned_to,
+        }
+
     return Principal(user.id, user.role)
 
 
@@ -267,10 +294,18 @@ def download_resource(resource_id: int, user: Principal = Depends(principal)):
 
 
 @router.post("/projects/{project_id}/milestones", status_code=201)
-def create_milestone(project_id: int, body: MilestoneIn, user: Principal = Depends(principal)):
+def create_milestone(project_id: int, body: MilestoneIn, user: Principal = Depends(principal), db: Session = Depends(get_db)):
     workspace.require_member(project_id, user)
     workspace.require_lead_or_faculty(project_id, user)
-    mid = workspace.next_id("milestone")
+    try:
+        t_date = datetime.strptime(body.target_date, "%Y-%m-%d").date()
+    except Exception:
+        t_date = datetime.now(timezone.utc).date()
+    db_m = Milestone(project_id=project_id, description=body.description.strip(), target_date=t_date, status="Not Started")
+    db.add(db_m)
+    db.commit()
+    db.refresh(db_m)
+    mid = db_m.id
     workspace.milestones[mid] = {"id": mid, "project_id": project_id, "description": body.description.strip(),
                                  "target_date": body.target_date, "status": "Not Started", "completed_at": None}
     workspace.log(user.id, "Milestone", mid, project_id, "milestone created")
@@ -295,13 +330,21 @@ def list_tasks(milestone_id: int, user: Principal = Depends(principal)):
 
 
 @router.patch("/milestones/{milestone_id}")
-def update_milestone(milestone_id: int, body: StatusIn, user: Principal = Depends(principal)):
+def update_milestone(milestone_id: int, body: StatusIn, user: Principal = Depends(principal), db: Session = Depends(get_db)):
     item = workspace.milestones.get(milestone_id)
     if item is None:
         raise HTTPException(404, "Milestone not found")
     workspace.require_member(item["project_id"], user)
     item["status"] = _translate_workspace_error(validate_status_transition, item["status"], body.status)
     item["completed_at"] = utc_now() if item["status"] == "Completed" else None
+    db_m = db.query(Milestone).filter(Milestone.id == milestone_id).first()
+    if db_m:
+        db_m.status = item["status"]
+        if item["status"] == "Completed":
+            db_m.completed_at = datetime.now(timezone.utc)
+        else:
+            db_m.completed_at = None
+        db.commit()
     workspace.log(user.id, "Milestone", milestone_id, item["project_id"], f"status changed to {item['status']}")
     return {"status": item["status"], "completed_at": item["completed_at"]}
 
