@@ -11,7 +11,8 @@ import React, { useState, useEffect } from 'react';
  *
  * Testability: All elements have `data-testid="coord-dashboard-<element>"`.
  */
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const rawBase = import.meta.env.VITE_API_BASE_URL || "https://researchbridge-r327.onrender.com";
+const API_BASE = rawBase.replace(/\/+$/, "");
 
 export default function CoordinatorDashboard({ token }) {
   const [data, setData] = useState(null);
@@ -61,19 +62,19 @@ export default function CoordinatorDashboard({ token }) {
 
   if (screenState === 'loading') {
     return (
-      <div data-testid="coord-dashboard-loading" style={{ padding: '24px', textAlign: 'center' }}>
-        <h2>Loading Platform Metrics...</h2>
+      <div data-testid="coord-dashboard-loading" className="state-card state-loading">
+        <span className="state-mark" aria-hidden="true">◌</span>
+        <h2>Loading Platform Metrics…</h2>
+        <p>Aggregating institutional data, active applications, and research opportunities.</p>
       </div>
     );
   }
 
   if (screenState === 'access-denied') {
     return (
-      <div
-        data-testid="coord-dashboard-access-denied"
-        style={{ padding: '24px', backgroundColor: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px' }}
-      >
-        <h2 style={{ color: '#991b1b' }}>Access Denied</h2>
+      <div data-testid="coord-dashboard-access-denied" className="state-card state-denied">
+        <span className="state-mark" aria-hidden="true">⌑</span>
+        <h2>Access Restricted</h2>
         <p>Coordinator or Administrator permissions are required to access institutional analytics.</p>
       </div>
     );
@@ -81,58 +82,145 @@ export default function CoordinatorDashboard({ token }) {
 
   if (screenState === 'error') {
     return (
-      <div
-        data-testid="coord-dashboard-error"
-        style={{ padding: '24px', backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px' }}
-      >
-        <h2 style={{ color: '#c2410c' }}>Error</h2>
+      <div data-testid="coord-dashboard-error" className="state-card state-error">
+        <span className="state-mark" aria-hidden="true">!</span>
+        <h2>Analytics Unavailable</h2>
         <p>{errorMsg}</p>
       </div>
     );
   }
 
+  const totalUsers = Object.values(data?.metrics?.users_by_role || {}).reduce((a, b) => a + b, 0);
+  const totalOpps = Object.values(data?.metrics?.opportunities_by_status || {}).reduce((a, b) => a + b, 0);
+  const totalProjects = Object.values(data?.metrics?.projects_by_status || {}).reduce((a, b) => a + b, 0);
+  const totalApps = data?.metrics?.total_applications ?? 0;
+
   return (
-    <div data-testid="coord-dashboard-container" style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '20px' }}>
-        <h1 data-testid="coord-dashboard-title">Institutional Overview</h1>
-        <p>System-wide collaboration analytics and participant summary.</p>
+    <div data-testid="coord-dashboard-container" className="dashboard-shell">
+      {/* 1. Header */}
+      <header className="dashboard-header">
+        <div>
+          <div className="dashboard-kicker">Institutional Oversight & Analytics</div>
+          <h1 className="dashboard-title" data-testid="coord-dashboard-title">
+            Institutional Overview
+          </h1>
+          <p className="dashboard-subtitle">
+            System-wide research activity metrics, cohort participation, and project progress.
+          </p>
+        </div>
+        <div className="dashboard-actions">
+          <a href="#/opportunities" className="button button-secondary" style={{ textDecoration: 'none' }}>
+            <span>View Opportunities</span>
+          </a>
+        </div>
       </header>
 
+      {/* 2. Metrics Strip */}
+      <section className="metrics-strip" aria-label="Institutional KPI Strip">
+        <div className="metric-card">
+          <div className="metric-eyebrow">
+            <span>Community Members</span>
+            <span aria-hidden="true">👥</span>
+          </div>
+          <div className="metric-value">{totalUsers}</div>
+          <div className="metric-caption">Verified participants</div>
+        </div>
+
+        <div className="metric-card metric-card-lime">
+          <div className="metric-eyebrow">
+            <span>Research Listings</span>
+            <span aria-hidden="true">★</span>
+          </div>
+          <div className="metric-value">{totalOpps}</div>
+          <div className="metric-caption">Faculty opportunities</div>
+        </div>
+
+        <div className="metric-card metric-card-sage">
+          <div className="metric-eyebrow">
+            <span>Active Projects</span>
+            <span aria-hidden="true">◫</span>
+          </div>
+          <div className="metric-value">{totalProjects}</div>
+          <div className="metric-caption">Ongoing student labs</div>
+        </div>
+
+        <div className="metric-card metric-card-accent">
+          <div className="metric-eyebrow">
+            <span>Total Applications</span>
+            <span aria-hidden="true">✉</span>
+          </div>
+          <div className="metric-value">{totalApps}</div>
+          <div className="metric-caption">Student submissions</div>
+        </div>
+      </section>
+
+      {/* 3. Empty State or Analytics Grid */}
       {screenState === 'empty' ? (
-        <div
-          data-testid="coord-dashboard-empty"
-          style={{ padding: '32px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px' }}
-        >
-          <h3>No activity recorded yet</h3>
+        <div data-testid="coord-dashboard-empty" className="state-card state-empty">
+          <span className="state-mark" aria-hidden="true">✦</span>
+          <h2>No activity recorded yet</h2>
           <p>User accounts and research opportunities will appear here once registered.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
           {/* User distribution */}
           <div
             data-testid="coord-dashboard-users-card"
-            style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+            className="feed-card"
+            style={{ margin: 0 }}
           >
-            <h3>Users by Role</h3>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
-              {Object.entries(data?.metrics?.users_by_role || {}).map(([role, count]) => (
-                <li key={role} style={{ marginBottom: '4px' }}>
-                  <strong>{role}:</strong> {count}
-                </li>
-              ))}
+            <div className="feed-card-header">
+              <h3 className="feed-card-title">Users by Role</h3>
+              <span className="badge-count">{totalUsers}</span>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: '8px' }}>
+              {Object.entries(data?.metrics?.users_by_role || {}).map(([role, count]) => {
+                const pct = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
+                return (
+                  <li key={role} style={{ background: '#f5f7f0', padding: '10px 12px', borderRadius: '7px', border: '1px solid #e7ebe1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '13px', color: 'var(--color-teal)' }}>{role}</strong>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                        {count} ({pct}%)
+                      </span>
+                    </div>
+                    <div style={{ height: '4px', background: '#e1e7dc', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-teal)', borderRadius: '2px' }} />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
           {/* Opportunities summary */}
           <div
             data-testid="coord-dashboard-opps-card"
-            style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+            className="feed-card"
+            style={{ margin: 0 }}
           >
-            <h3>Opportunities</h3>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
+            <div className="feed-card-header">
+              <h3 className="feed-card-title">Opportunities by Status</h3>
+              <span className="badge-count">{totalOpps}</span>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: '8px' }}>
               {Object.entries(data?.metrics?.opportunities_by_status || {}).map(([st, count]) => (
-                <li key={st} style={{ marginBottom: '4px' }}>
-                  <strong>{st}:</strong> {count}
+                <li
+                  key={st}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px 12px',
+                    background: '#f5f7f0',
+                    borderRadius: '7px',
+                    border: '1px solid #e7ebe1'
+                  }}
+                >
+                  <strong style={{ fontSize: '13px', color: 'var(--color-teal)' }}>{st}</strong>
+                  <span className={`status-pill ${st === 'Published' ? 'status-good' : st === 'Closed' ? 'status-muted' : 'status-warm'}`}>
+                    {count}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -141,31 +229,60 @@ export default function CoordinatorDashboard({ token }) {
           {/* Projects summary */}
           <div
             data-testid="coord-dashboard-projects-card"
-            style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+            className="feed-card"
+            style={{ margin: 0 }}
           >
-            <h3>Projects</h3>
-            <ul style={{ listStyle: 'none', padding: 0 }}>
+            <div className="feed-card-header">
+              <h3 className="feed-card-title">Projects by Status</h3>
+              <span className="badge-count">{totalProjects}</span>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0 0', display: 'grid', gap: '8px' }}>
               {Object.entries(data?.metrics?.projects_by_status || {}).map(([st, count]) => (
-                <li key={st} style={{ marginBottom: '4px' }}>
-                  <strong>{st}:</strong> {count}
+                <li
+                  key={st}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px 12px',
+                    background: '#f5f7f0',
+                    borderRadius: '7px',
+                    border: '1px solid #e7ebe1'
+                  }}
+                >
+                  <strong style={{ fontSize: '13px', color: 'var(--color-teal)' }}>{st}</strong>
+                  <span className={`status-pill ${st === 'Active' ? 'status-good' : 'status-muted'}`}>
+                    {count}
+                  </span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Applications summary */}
+          {/* Applications summary card */}
           <div
             data-testid="coord-dashboard-apps-card"
-            style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+            className="feed-card"
+            style={{ margin: 0 }}
           >
-            <h3>Applications</h3>
-            <p style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '8px 0', color: '#2563eb' }}>
-              {data?.metrics?.total_applications}
-            </p>
+            <div className="feed-card-header">
+              <h3 className="feed-card-title">Applications Activity</h3>
+              <span className="badge-count">{totalApps}</span>
+            </div>
+            <div style={{ marginTop: '14px', padding: '16px', background: '#f5f7f0', borderRadius: '8px', border: '1px solid #e7ebe1', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, color: '#688279' }}>
+                Total Student Submissions
+              </div>
+              <p style={{ fontSize: '32px', fontWeight: 700, margin: '6px 0', color: 'var(--color-teal)', fontFamily: 'var(--font-sans)' }}>
+                {data?.metrics?.total_applications ?? 0}
+              </p>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                Recorded across active and past semesters
+              </div>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
-

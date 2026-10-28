@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AgentPanel from '../components/AgentPanel';
 
 /**
@@ -12,7 +12,8 @@ import AgentPanel from '../components/AgentPanel';
  *
  * Testability: All interactive and key structural elements have `data-testid="student-dashboard-<element>"`.
  */
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const rawBase = import.meta.env.VITE_API_BASE_URL || "https://researchbridge-r327.onrender.com";
+const API_BASE = rawBase.replace(/\/+$/, "");
 
 export default function StudentDashboard({ token }) {
   const [dashboardData, setDashboardData] = useState(null);
@@ -64,21 +65,38 @@ export default function StudentDashboard({ token }) {
     }
   }, [token]);
 
+  // Derived real metrics from real data (no fabrication)
+  const metrics = useMemo(() => {
+    if (!dashboardData) return { activeApps: 0, acceptedApps: 0, activeProjects: 0, pendingMilestones: 0 };
+    const apps = dashboardData.applications || [];
+    const projs = dashboardData.projects || [];
+    const activeApps = apps.filter(a => ['Submitted', 'Shortlisted'].includes(a.status)).length;
+    const acceptedApps = apps.filter(a => a.status === 'Accepted').length;
+    const activeProjects = projs.length;
+    let pendingMilestones = 0;
+    projs.forEach(p => {
+      (p.milestones || []).forEach(m => {
+        if (m.status !== 'Completed') pendingMilestones += 1;
+      });
+    });
+    return { activeApps, acceptedApps, activeProjects, pendingMilestones };
+  }, [dashboardData]);
+
   if (screenState === 'loading') {
     return (
-      <div data-testid="student-dashboard-loading" style={{ padding: '24px', textAlign: 'center' }}>
-        <h2>Loading your research workspace...</h2>
+      <div data-testid="student-dashboard-loading" className="state-card state-loading">
+        <span className="state-mark" aria-hidden="true">◌</span>
+        <h2>Gathering your research workspace…</h2>
+        <p>Loading your active applications, milestones, and project teams.</p>
       </div>
     );
   }
 
   if (screenState === 'access-denied') {
     return (
-      <div
-        data-testid="student-dashboard-access-denied"
-        style={{ padding: '24px', backgroundColor: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px' }}
-      >
-        <h2 style={{ color: '#991b1b' }}>Access Denied</h2>
+      <div data-testid="student-dashboard-access-denied" className="state-card state-denied">
+        <span className="state-mark" aria-hidden="true">⌑</span>
+        <h2>Student Access Required</h2>
         <p>You must be signed in with a verified Student account to view this dashboard.</p>
       </div>
     );
@@ -86,88 +104,267 @@ export default function StudentDashboard({ token }) {
 
   if (screenState === 'error') {
     return (
-      <div
-        data-testid="student-dashboard-error"
-        style={{ padding: '24px', backgroundColor: '#fff7ed', border: '1px solid #fdba74', borderRadius: '8px' }}
-      >
-        <h2 style={{ color: '#c2410c' }}>Service Unavailable</h2>
+      <div data-testid="student-dashboard-error" className="state-card state-error">
+        <span className="state-mark" aria-hidden="true">!</span>
+        <h2>Service Unavailable</h2>
         <p>{errorMsg}</p>
       </div>
     );
   }
 
   return (
-    <div data-testid="student-dashboard-container" style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '20px' }}>
-        <h1 data-testid="student-dashboard-welcome">Welcome, {dashboardData?.user?.name}</h1>
-        <p style={{ color: '#4b5563' }}>Manage your applications, active projects, and research milestones.</p>
+    <div data-testid="student-dashboard-container" className="dashboard-shell">
+      {/* 1. Redesigned Page Header */}
+      <header className="dashboard-header">
+        <div>
+          <div className="dashboard-kicker">Student Researcher Workspace</div>
+          <h1 className="dashboard-title" data-testid="student-dashboard-welcome">
+            Welcome, {dashboardData?.user?.name}
+          </h1>
+          <p className="dashboard-subtitle">
+            Manage your applications, collaborate on active research projects, and track upcoming milestones.
+          </p>
+        </div>
+        <div className="dashboard-actions">
+          <a href="#/opportunities" className="button" style={{ textDecoration: 'none' }}>
+            <span>Explore Opportunities</span> <span aria-hidden="true">→</span>
+          </a>
+        </div>
       </header>
 
-      {/* Advisory recommendations panel loads independently (NFR-002, 3.1.1) */}
+      {/* 2. Restrained Real Metrics Strip */}
+      <section className="metrics-strip" aria-label="Research overview metrics">
+        <div className="metric-card">
+          <div className="metric-eyebrow">
+            <span>In-Review Applications</span>
+            <span aria-hidden="true">⏳</span>
+          </div>
+          <div className="metric-value">{metrics.activeApps}</div>
+          <div className="metric-caption">Submitted or shortlisted</div>
+        </div>
+
+        <div className="metric-card metric-card-lime">
+          <div className="metric-eyebrow">
+            <span>Accepted Offers</span>
+            <span aria-hidden="true">✓</span>
+          </div>
+          <div className="metric-value">{metrics.acceptedApps}</div>
+          <div className="metric-caption">Ready for active research</div>
+        </div>
+
+        <div className="metric-card metric-card-sage">
+          <div className="metric-eyebrow">
+            <span>Active Projects</span>
+            <span aria-hidden="true">◫</span>
+          </div>
+          <div className="metric-value">{metrics.activeProjects}</div>
+          <div className="metric-caption">Enrolled lab teams</div>
+        </div>
+
+        <div className="metric-card metric-card-accent">
+          <div className="metric-eyebrow">
+            <span>Pending Milestones</span>
+            <span aria-hidden="true">◷</span>
+          </div>
+          <div className="metric-value">{metrics.pendingMilestones}</div>
+          <div className="metric-caption">Deliverables in progress</div>
+        </div>
+      </section>
+
+      {/* 3. Redesigned AI Research Advisor */}
       <AgentPanel token={token} apiUrl="/agent/recommendations" />
 
+      {/* 4. Empty State or Split Layout */}
       {screenState === 'empty' ? (
-        <div
-          data-testid="student-dashboard-empty"
-          style={{ padding: '32px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px' }}
-        >
-          <h3>No research activities yet</h3>
-          <p>Explore opportunities and submit applications to start collaborating.</p>
+        <div data-testid="student-dashboard-empty" className="state-card state-empty">
+          <span className="state-mark" aria-hidden="true">✦</span>
+          <h2>No research activities yet</h2>
+          <p>Explore open research opportunities and submit applications to start collaborating with faculty mentors.</p>
+          <a href="#/opportunities" className="button" style={{ textDecoration: 'none', marginTop: '8px' }}>
+            Browse open opportunities
+          </a>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-          {/* Applications list */}
-          <section data-testid="student-dashboard-applications-section">
-            <h2>My Applications ({dashboardData.applications.length})</h2>
-            <ul data-testid="student-dashboard-applications-list" style={{ listStyle: 'none', padding: 0 }}>
-              {dashboardData.applications.map((app) => (
-                <li
-                  key={app.id}
-                  data-testid={`student-dashboard-app-${app.id}`}
-                  style={{
-                    padding: '12px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '6px',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <strong>{app.opportunity_title}</strong>
-                  <div>
-                    Status: <span data-testid={`student-dashboard-app-status-${app.id}`}>{app.status}</span>
-                  </div>
-                </li>
-              ))}
+        <div className="dashboard-split">
+          {/* Applications Section */}
+          <section data-testid="student-dashboard-applications-section" className="dashboard-section">
+            <div className="dashboard-section-header">
+              <h2 className="dashboard-section-title">
+                My Applications
+                <span className="badge-count">{dashboardData.applications.length}</span>
+              </h2>
+              <a href="#/my-applications" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
+                View all →
+              </a>
+            </div>
+
+            <ul data-testid="student-dashboard-applications-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {dashboardData.applications.map((app) => {
+                const isAccepted = app.status === 'Accepted';
+                const isShortlisted = app.status === 'Shortlisted';
+                const isRejected = app.status === 'Rejected';
+                const isWithdrawn = app.status === 'Withdrawn';
+
+                const statusClass = isAccepted ? 'status-good'
+                  : isShortlisted ? 'status-accent'
+                  : isRejected || isWithdrawn ? 'status-muted'
+                  : 'status-warm';
+
+                const statusSymbol = isAccepted ? '✓ '
+                  : isShortlisted ? '★ '
+                  : isRejected ? '✕ '
+                  : isWithdrawn ? '— '
+                  : '⏳ ';
+
+                return (
+                  <li
+                    key={app.id}
+                    data-testid={`student-dashboard-app-${app.id}`}
+                    className="feed-card"
+                  >
+                    <div className="feed-card-header">
+                      <h3 className="feed-card-title">
+                        <a href={`#/opportunities/${app.opportunity_id}`}>
+                          {app.opportunity_title}
+                        </a>
+                      </h3>
+                      <span
+                        className={`status-pill ${statusClass}`}
+                        data-testid={`student-dashboard-app-status-${app.id}`}
+                      >
+                        {statusSymbol}{app.status}
+                      </span>
+                    </div>
+
+                    <div className="feed-card-meta">
+                      {app.submitted_at && (
+                        <span className="feed-card-meta-item">
+                          <span>Submitted:</span>
+                          <strong>{new Date(app.submitted_at).toLocaleDateString()}</strong>
+                        </span>
+                      )}
+                      <span className="feed-card-meta-item">
+                        <span>Application:</span>
+                        <strong>#RB-A{String(app.id).padStart(4, '0')}</strong>
+                      </span>
+                    </div>
+
+                    {app.faculty_comment && (
+                      <div className="faculty-quote">
+                        <strong>Faculty Note:</strong>
+                        {app.faculty_comment}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
 
-          {/* Active Projects & Milestones */}
-          <section data-testid="student-dashboard-projects-section">
-            <h2>Active Projects ({dashboardData.projects.length})</h2>
-            <ul data-testid="student-dashboard-projects-list" style={{ listStyle: 'none', padding: 0 }}>
-              {dashboardData.projects.map((proj) => (
-                <li
-                  key={proj.project_id}
-                  data-testid={`student-dashboard-proj-${proj.project_id}`}
-                  style={{
-                    padding: '12px',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '6px',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <strong>{proj.title}</strong> ({proj.role_in_project})
-                  <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Domain: {proj.domain}</div>
-                  {proj.milestones.length > 0 && (
-                    <ul style={{ marginTop: '8px', paddingLeft: '16px' }}>
-                      {proj.milestones.map((ms) => (
-                        <li key={ms.id}>
-                          {ms.description} - Due: {ms.target_date} ({ms.status})
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
+          {/* Active Projects & Milestones Section */}
+          <section data-testid="student-dashboard-projects-section" className="dashboard-section">
+            <div className="dashboard-section-header">
+              <h2 className="dashboard-section-title">
+                Active Projects
+                <span className="badge-count">{dashboardData.projects.length}</span>
+              </h2>
+              <a href="/workspace" target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-teal)', textDecoration: 'none' }}>
+                Open workspace ↗
+              </a>
+            </div>
+
+            <ul data-testid="student-dashboard-projects-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {dashboardData.projects.map((proj) => {
+                const totalMs = (proj.milestones || []).length;
+                const completedMs = (proj.milestones || []).filter(m => m.status === 'Completed').length;
+                const progressPct = totalMs > 0 ? Math.round((completedMs / totalMs) * 100) : 0;
+                const todayStr = new Date().toISOString().slice(0, 10);
+
+                return (
+                  <li
+                    key={proj.project_id}
+                    data-testid={`student-dashboard-proj-${proj.project_id}`}
+                    className="feed-card"
+                  >
+                    <div className="feed-card-header">
+                      <div>
+                        <h3 className="feed-card-title">{proj.title}</h3>
+                        <div className="feed-card-meta" style={{ marginTop: '4px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            background: 'var(--color-sage-pale)',
+                            color: 'var(--color-teal)',
+                            fontSize: '11px',
+                            fontWeight: 600
+                          }}>
+                            {proj.domain || 'Research'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                            Role: <strong>{proj.role_in_project || 'Member'}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {totalMs > 0 && (
+                      <div className="milestones-box">
+                        <div className="milestones-box-title">
+                          <span>Milestones Progress</span>
+                          <span style={{ color: 'var(--color-teal)' }}>{completedMs} of {totalMs} completed ({progressPct}%)</span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div style={{
+                          height: '5px',
+                          background: '#e3e9de',
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                          marginBottom: '10px'
+                        }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${progressPct}%`,
+                            background: 'var(--color-teal)',
+                            borderRadius: '4px',
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </div>
+
+                        {/* Structured Compact Task Rows */}
+                        <div style={{ display: 'grid', gap: '4px' }}>
+                          {proj.milestones.map((ms) => {
+                            const isDone = ms.status === 'Completed';
+                            const isOverdue = !isDone && ms.target_date && ms.target_date < todayStr;
+
+                            return (
+                              <div key={ms.id} className="task-row">
+                                <div className="task-info">
+                                  <span
+                                    className={`task-state-icon ${isDone ? 'task-icon-completed' : isOverdue ? 'task-icon-overdue' : 'task-icon-pending'}`}
+                                    aria-label={`Status: ${isDone ? 'Completed' : isOverdue ? 'Overdue' : 'Pending'}`}
+                                  >
+                                    {isDone ? '✓' : isOverdue ? '!' : '○'}
+                                  </span>
+                                  <span className="task-name" title={ms.description}>
+                                    {ms.description}
+                                  </span>
+                                </div>
+                                <span className="task-due">
+                                  {isOverdue && <strong style={{ color: 'var(--color-error)', marginRight: '4px' }}>Overdue:</strong>}
+                                  {ms.target_date || 'No due date'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         </div>
@@ -175,4 +372,3 @@ export default function StudentDashboard({ token }) {
     </div>
   );
 }
-
