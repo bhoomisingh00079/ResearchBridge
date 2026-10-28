@@ -284,6 +284,7 @@ export default function StudentDashboard({ token }) {
                 const completedMs = (proj.milestones || []).filter(m => m.status === 'Completed').length;
                 const progressPct = totalMs > 0 ? Math.round((completedMs / totalMs) * 100) : 0;
                 const todayStr = new Date().toISOString().slice(0, 10);
+                const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV'];
 
                 return (
                   <li
@@ -316,53 +317,77 @@ export default function StudentDashboard({ token }) {
 
                     {totalMs > 0 && (
                       <div className="milestones-box">
-                        <div className="milestones-box-title">
-                          <span>Expedition Milestones</span>
-                          <span style={{ color: 'var(--color-academy-deep)' }}>
-                            {completedMs} of {totalMs} completed ({progressPct}%)
-                          </span>
+                        {/* Expedition Progression Header */}
+                        <div className="expedition-progress-header">
+                          <div className="expedition-progress-title">
+                            <span className="expedition-crest-icon" aria-hidden="true">⚜️</span>
+                            <div>
+                              <h4>Expedition Progression</h4>
+                              <span className="expedition-subtext">Chronicle of discovery milestones</span>
+                            </div>
+                          </div>
+                          <div className="expedition-progress-stats">
+                            <span className="expedition-ratio">
+                              <strong style={{ color: 'var(--color-gold-antique)' }}>{completedMs}</strong> of {totalMs} Chapters
+                            </span>
+                            <span className="expedition-pct-badge">{progressPct}% Unlocked</span>
+                          </div>
                         </div>
 
-                        {/* Progress Bar in Antique Gold & Academy Green */}
-                        <div style={{
-                          height: '6px',
-                          background: '#E5DDCB',
-                          borderRadius: '4px',
-                          overflow: 'hidden',
-                          marginBottom: '10px'
-                        }}>
-                          <div style={{
-                            height: '100%',
-                            width: `${progressPct}%`,
-                            background: 'var(--color-gold-antique)',
-                            borderRadius: '4px',
-                            transition: 'width 0.3s ease'
-                          }} />
+                        {/* Illuminated Golden Track */}
+                        <div className="expedition-track-container">
+                          <div
+                            className="expedition-track-fill"
+                            style={{ width: `${progressPct}%` }}
+                          >
+                            <span className="expedition-track-star">✦</span>
+                          </div>
                         </div>
 
-                        {/* Structured Compact Task Rows with Scroll Containment */}
-                        <div className="milestone-tasks-scroll">
-                          {proj.milestones.map((ms) => {
+                        {/* Vertical Illuminated Quest Thread */}
+                        <div className="milestone-timeline-container">
+                          {proj.milestones.map((ms, index) => {
                             const isDone = ms.status === 'Completed';
                             const isOverdue = !isDone && ms.target_date && ms.target_date < todayStr;
+                            const chapterNum = romanNumerals[index] || `${index + 1}`;
+
+                            let formattedDate = 'No deadline';
+                            if (ms.target_date) {
+                              try {
+                                const [y, m, d] = ms.target_date.split('-');
+                                const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+                                formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              } catch {
+                                formattedDate = ms.target_date;
+                              }
+                            }
 
                             return (
-                              <div key={ms.id} className="task-row">
-                                <div className="task-info">
-                                  <span
-                                    className={`task-state-icon ${isDone ? 'task-icon-completed' : isOverdue ? 'task-icon-overdue' : 'task-icon-pending'}`}
-                                    aria-label={`Status: ${isDone ? 'Completed' : isOverdue ? 'Overdue' : 'Pending'}`}
-                                  >
-                                    {isDone ? '✓' : isOverdue ? '!' : '○'}
-                                  </span>
-                                  <span className="task-name" title={ms.description}>
-                                    {ms.description}
-                                  </span>
+                              <div
+                                key={ms.id}
+                                className={`milestone-timeline-item ${isDone ? 'is-done' : isOverdue ? 'is-overdue' : 'is-active'}`}
+                              >
+                                {/* Heraldic Wax Seal Medallion */}
+                                <div className={`milestone-seal ${isDone ? 'seal-gold' : isOverdue ? 'seal-crimson' : 'seal-astrolabe'}`}>
+                                  {isDone ? '✓' : isOverdue ? '!' : chapterNum}
                                 </div>
-                                <span className="task-due">
-                                  {isOverdue && <strong style={{ color: 'var(--color-error)', marginRight: '4px' }}>Overdue:</strong>}
-                                  {ms.target_date || 'No due date'}
-                                </span>
+
+                                {/* Milestone Chronicle Body */}
+                                <div className="milestone-chronicle-card">
+                                  <div className="milestone-chronicle-top">
+                                    <span className="milestone-chapter-label">CHAPTER {chapterNum}</span>
+                                    <span className={`milestone-status-tag ${isDone ? 'tag-accomplished' : isOverdue ? 'tag-overdue' : 'tag-active'}`}>
+                                      {isDone ? '✦ Accomplished' : isOverdue ? '⚠️ Overdue' : '⦿ Active Quest'}
+                                    </span>
+                                  </div>
+                                  <p className="milestone-chronicle-title">{ms.description}</p>
+                                  <div className="milestone-chronicle-meta">
+                                    <span className="milestone-chronicle-date">
+                                      <span aria-hidden="true">⌛</span>
+                                      {isDone ? `Completed: ${formattedDate}` : isOverdue ? `Overdue since: ${formattedDate}` : `Target: ${formattedDate}`}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                             );
                           })}

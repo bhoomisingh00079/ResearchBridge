@@ -152,69 +152,89 @@ function App() {
     <div className="app-shell">
       <a href="#main" className="skip-link">Skip to content</a>
 
-      {/* Sidebar Navigation Rail */}
+      {/* Sidebar Navigation Rail — Hogwarts Carved Oak & Gold */}
       <aside className={`sidebar ${mobileNavOpen ? "mobile-open" : ""}`}>
-        <a className="brand" href="#/" aria-label="The Scholarium home">
-          <span className="brand-mark" aria-hidden="true"><AcademyEmblem /></span>
-          <div className="brand-title-wrap">
-            <span className="brand-name">Research<span>Bridge</span></span>
-            <span className="brand-tagline">THE SCHOLARIUM</span>
+        <div className="sidebar-sticky-head">
+          <a className="brand" href="#/" aria-label="The Scholarium home">
+            <span className="brand-mark" aria-hidden="true"><AcademyEmblem /></span>
+            <div className="brand-title-wrap">
+              <span className="brand-name">Research<span>Bridge</span></span>
+              <span className="brand-tagline">✦ THE SCHOLARIUM ✦</span>
+            </div>
+          </a>
+        </div>
+
+        <div className="sidebar-scrollable-content">
+          <div className="nav-group">
+            <div className="nav-label">✦ THE GREAT HALLS</div>
+            <nav aria-label="Great halls navigation" className="side-nav">
+              <a href="#/" className={route.page === "home" ? "is-active" : ""}>
+                <span className="nav-icon" aria-hidden="true">🏛️</span> Academy Portal
+              </a>
+              {user && (
+                <a href="#/dashboard" data-testid="nav-dashboard" className={route.page === "dashboard" ? "is-active" : ""}>
+                  <span className="nav-icon" aria-hidden="true">✧</span>
+                  {user.role === "Student" ? "The Scholar's Chamber" : user.role === "Faculty" ? "The Faculty Chamber" : "The Observatory"}
+                </a>
+              )}
+              <a href="#/opportunities" data-testid="nav-opportunities" className={route.page === "opportunities" ? "is-active" : ""}>
+                <span className="nav-icon" aria-hidden="true">📜</span> The Great Archive
+              </a>
+            </nav>
           </div>
-        </a>
 
-        <div className="nav-group">
-          <div className="nav-label">THE ACADEMY</div>
-          <nav aria-label="Main navigation" className="side-nav">
-            {user && (
-              <a href="#/dashboard" data-testid="nav-dashboard" className={route.page === "dashboard" ? "is-active" : ""}>
-                <span className="nav-icon" aria-hidden="true">◫</span>
-                {user.role === "Student" ? "Scholar's Chamber" : user.role === "Faculty" ? "Faculty Chamber" : "Institutional Observatory"}
-              </a>
-            )}
-            <a href="#/opportunities" data-testid="nav-opportunities" className={route.page === "opportunities" ? "is-active" : ""}>
-              <span className="nav-icon" aria-hidden="true">⌕</span> Research Archive
-            </a>
-            {user?.role === "Faculty" && (
-              <a href="#/create" data-testid="nav-create" className={route.page === "create" ? "is-active" : ""}>
-                <span className="nav-icon" aria-hidden="true">＋</span> New Research Opportunity
-              </a>
-            )}
-            {user?.role === "Faculty" && (
-              <a href="#/my-opportunities" data-testid="nav-my-opportunities" className={route.page === "my-opportunities" ? "is-active" : ""}>
-                <span className="nav-icon" aria-hidden="true">▤</span> My Opportunities
-              </a>
-            )}
-            {user?.role === "Student" && (
-              <a href="#/my-applications" data-testid="nav-my-applications" className={route.page === "my-applications" ? "is-active" : ""}>
-                <span className="nav-icon" aria-hidden="true">◷</span> My Applications
-              </a>
-            )}
-            {user && (
-              <a href="#/profile" data-testid="nav-profile" className={route.page === "profile" ? "is-active" : ""}>
-                <span className="nav-icon" aria-hidden="true">◉</span> Scholar Profile
-              </a>
-            )}
-            {user && (
-              <a href="/workspace" target="_blank" rel="noopener noreferrer" data-testid="nav-workspace">
-                <span className="nav-icon" aria-hidden="true">↗</span> Research Workspace
-              </a>
-            )}
-            {user?.role === "Administrator" && (
-              <a href="#/admin" data-testid="nav-admin" className={route.page === "admin" ? "is-active" : ""}>
-                <span className="nav-icon" aria-hidden="true">✦</span> Academy Administration
-              </a>
-            )}
-          </nav>
-        </div>
+          <div className="nav-group">
+            <div className="nav-label">✦ EXPEDITION LEDGER</div>
+            <nav aria-label="Expedition navigation" className="side-nav">
+              {user?.role === "Student" && (
+                <a href="#/my-applications" data-testid="nav-my-applications" className={route.page === "my-applications" ? "is-active" : ""}>
+                  <span className="nav-icon" aria-hidden="true">⌛</span> My Applications
+                </a>
+              )}
+              {user?.role === "Faculty" && (
+                <a href="#/create" data-testid="nav-create" className={route.page === "create" ? "is-active" : ""}>
+                  <span className="nav-icon" aria-hidden="true">✦</span> New Research Question
+                </a>
+              )}
+              {user?.role === "Faculty" && (
+                <a href="#/my-opportunities" data-testid="nav-my-opportunities" className={route.page === "my-opportunities" ? "is-active" : ""}>
+                  <span className="nav-icon" aria-hidden="true">📖</span> My Portfolio
+                </a>
+              )}
+              {user && (
+                <a href="/workspace" target="_blank" rel="noopener noreferrer" data-testid="nav-workspace">
+                  <span className="nav-icon" aria-hidden="true">🗺️</span> Research Expedition ↗
+                </a>
+              )}
+              {user?.role === "Administrator" && (
+                <a href="#/admin" data-testid="nav-admin" className={route.page === "admin" ? "is-active" : ""}>
+                  <span className="nav-icon" aria-hidden="true">⚜️</span> Academy Registry
+                </a>
+              )}
+            </nav>
+          </div>
 
-        <div className="sidebar-note">
-          <strong>Good research grows together.</strong>
-          <p>Find a question worth asking, then find your people.</p>
-        </div>
+          <div className="nav-group">
+            <div className="nav-label">✦ THE SCHOLAR’S CODEX</div>
+            <nav aria-label="Codex navigation" className="side-nav">
+              {user && (
+                <a href="#/profile" data-testid="nav-profile" className={route.page === "profile" ? "is-active" : ""}>
+                  <span className="nav-icon" aria-hidden="true">🖋️</span> Scholar Profile & Codex
+                </a>
+              )}
+            </nav>
+          </div>
 
-        <div className="sidebar-bottom">
-          <span className="status-dot" aria-hidden="true" />
-          <span>The Scholarium Platform</span>
+          <div className="sidebar-note">
+            <div className="sidebar-note-kicker">EX UMBRA IN SOLEM</div>
+            <strong>Good research grows together.</strong>
+            <p>Find a question worth asking, then find your people.</p>
+          </div>
+
+          <div className="sidebar-bottom">
+            <span className="status-dot" aria-hidden="true" />
+            <span>The Scholarium · Sanctuary of Questions</span>
+          </div>
         </div>
       </aside>
 
