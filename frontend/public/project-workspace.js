@@ -236,12 +236,47 @@ async function loadNotifications() {
   } catch (error) { showFailure(error, list); }
 }
 
-function currentUserRole() {
-  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role || "Student"; } catch { return "Student"; }
+let cachedUser = null;
+
+async function fetchMe() {
+  if (cachedUser) return cachedUser;
+  try {
+    cachedUser = await api("/me");
+    return cachedUser;
+  } catch {
+    return null;
+  }
 }
+
+function parseTokenPayload() {
+  const currentToken = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
+  if (!currentToken) return null;
+  const parts = currentToken.split(".");
+  for (const part of parts) {
+    try {
+      const padded = part.padEnd(part.length + (4 - part.length % 4) % 4, "=").replace(/-/g, "+").replace(/_/g, "/");
+      const jsonStr = atob(padded);
+      const parsed = JSON.parse(jsonStr);
+      if (parsed && typeof parsed === "object" && ("role" in parsed || "sub" in parsed)) {
+        return parsed;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function currentUserRole() {
+  const paramRole = new URLSearchParams(window.location.search).get("role");
+  if (paramRole) return paramRole;
+  if (cachedUser && cachedUser.role) return cachedUser.role;
+  const payload = parseTokenPayload();
+  return payload?.role || "Student";
+}
+
 
 async function loadLetters() {
   const list = document.querySelector("#letter-list");
+  if (!cachedUser) { try { await fetchMe(); } catch {} }
   const isFaculty = currentUserRole() === "Faculty";
   const reqForm = document.querySelector("#letter-request-form");
   const fBanner = document.querySelector("#faculty-lor-banner");
@@ -284,7 +319,7 @@ async function loadLetters() {
       const meta = document.createElement("div"); meta.className = "row-meta";
       meta.append(badge(item.status, statusClass(item.status)));
       row.append(copy, meta); wrapper.append(row);
-      if (item.faculty_user_id === currentUserId() && item.status === "Requested") {
+      if ((isFaculty || item.faculty_user_id === currentUserId()) && item.status === "Requested") {
         const actions = document.createElement("div"); actions.className = "row-actions";
         const issue = document.createElement("button"); issue.className = "small-button"; issue.type = "button"; issue.textContent = "Issue letter";
         issue.addEventListener("click", async () => {
@@ -311,7 +346,11 @@ async function loadLetters() {
 }
 
 function currentUserId() {
-  try { return Number(JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).sub); } catch { return -1; }
+  const paramId = new URLSearchParams(window.location.search).get("userId");
+  if (paramId) return Number(paramId);
+  if (cachedUser && cachedUser.id) return Number(cachedUser.id);
+  const payload = parseTokenPayload();
+  return payload?.sub ? Number(payload.sub) : -1;
 }
 
 async function decideLetter(id, decision, body) {
@@ -413,6 +452,12 @@ async function initWorkspace() {
   if (token) {
     sessionStorage.setItem("rb-token", token);
     localStorage.setItem("rb-token", token);
+    try { await fetchMe(); } catch {}
+    const isFaculty = currentUserRole() === "Faculty";
+    const reqForm = document.querySelector("#letter-request-form");
+    const fBanner = document.querySelector("#faculty-lor-banner");
+    if (reqForm) reqForm.hidden = isFaculty;
+    if (fBanner) fBanner.hidden = !isFaculty;
   }
   if (!token) {
     setNotice("Please sign in to view your research project workspace. <a href='/#/login' style='color:var(--color-teal);font-weight:700;text-decoration:underline;margin-left:8px;'>Sign in &rarr;</a>", "error");

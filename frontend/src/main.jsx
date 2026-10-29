@@ -675,6 +675,8 @@ function WorkspacePage({ user, projectId }) {
   const params = new URLSearchParams();
   if (projectId) params.set("project", projectId);
   if (token) params.set("token", token);
+  if (user?.role) params.set("role", user.role);
+  if (user?.id) params.set("userId", user.id);
   const qStr = params.toString();
   const iframeSrc = `/workspace/index.html${qStr ? `?${qStr}` : ''}`;
 
