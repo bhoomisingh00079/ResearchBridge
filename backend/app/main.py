@@ -34,9 +34,9 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         lifespan=lifespan,
     )
-    application.add_middleware(CORSMiddleware, allow_origins=list(settings.frontend_origins),
-                               allow_credentials=False, allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-                               allow_headers=["*"])
+    application.add_middleware(CORSMiddleware, allow_origins=["*"],
+                               allow_credentials=False, allow_methods=["*"],
+                               allow_headers=["*"], expose_headers=["*"])
 
     import re
 

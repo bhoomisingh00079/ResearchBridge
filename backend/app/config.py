@@ -39,7 +39,7 @@ class Settings:
     )
     token_ttl_seconds: int = int(os.getenv("TOKEN_TTL_SECONDS", "43200"))
     frontend_origins: tuple[str, ...] = tuple(
-        origin.strip() for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()
+        origin.strip() for origin in os.getenv("FRONTEND_ORIGINS", "*,https://research-bridge-pi.vercel.app,http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()
     )
     smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))

@@ -140,27 +140,21 @@ async function loadMilestones() {
   } catch (error) { showFailure(error, list); }
 }
 
-async function downloadFile(resourceId, filename) {
+function downloadFile(resourceId, filename) {
   try {
-    setNotice("Preparing file download...", "info");
     const currentToken = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
-    const res = await fetch(`${apiBase}/resources/${encodeURIComponent(resourceId)}/download`, {
-      headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `Download failed (${res.status})`);
-    }
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
+    const downloadUrl = `${apiBase}/resources/${encodeURIComponent(resourceId)}/download${currentToken ? `?token=${encodeURIComponent(currentToken)}` : ''}`;
+    
+    // Direct native browser download link (immune to CORS restrictions)
     const a = document.createElement("a");
-    a.href = url;
+    a.href = downloadUrl;
     a.download = filename || "resource";
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-    setNotice("Download completed.", "success");
+    setTimeout(() => a.remove(), 200);
+    setNotice("Downloading file...", "success");
   } catch (err) {
     setNotice(err.message, "error");
   }
