@@ -32,10 +32,19 @@ function authHeaders(extra = {}) {
   return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra };
 }
 
-async function api(path, options = {}) {
+async function api(path, options = {}, retries = 1) {
   token = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
   if (!token) throw new Error("Sign in to view this project workspace.");
-  const response = await fetch(`${apiBase}${path}`, { ...options, headers: authHeaders(options.headers || {}) });
+  let response;
+  try {
+    response = await fetch(`${apiBase}${path}`, { ...options, headers: authHeaders(options.headers || {}) });
+  } catch (err) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return api(path, options, retries - 1);
+    }
+    throw new Error("Connecting to ResearchBridge server... Please click Refresh in a few seconds.");
+  }
   if (response.status === 204) return null;
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
