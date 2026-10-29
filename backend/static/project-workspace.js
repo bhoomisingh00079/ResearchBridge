@@ -475,9 +475,21 @@ document.querySelector("#resource-form").addEventListener("submit", async (event
 document.querySelector("#activity-prev").addEventListener("click", async () => { activityPage = Math.max(1, activityPage - 1); await loadActivity(); });
 document.querySelector("#activity-next").addEventListener("click", async () => { activityPage += 1; await loadActivity(); });
 document.querySelector("#letter-request-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); const facultyUserId = Number(new FormData(event.currentTarget).get("faculty_user_id"));
-  try { await api("/lor/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ faculty_user_id: facultyUserId, project_id: projectId ? Number(projectId) : null }) }); event.currentTarget.reset(); setNotice("Your request was sent.", "success"); await Promise.all([loadLetters(), loadNotifications()]); }
-  catch (error) { setNotice(error.message, "error"); }
+  event.preventDefault();
+  const form = event.currentTarget;
+  const facultyUserId = Number(new FormData(form).get("faculty_user_id"));
+  try {
+    await api("/lor/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ faculty_user_id: facultyUserId, project_id: projectId ? Number(projectId) : null })
+    });
+    if (form) form.reset();
+    setNotice("Your request was sent.", "success");
+    await Promise.all([loadLetters(), loadNotifications()]);
+  } catch (error) {
+    setNotice(error.message, "error");
+  }
 });
 
 async function initWorkspace() {
