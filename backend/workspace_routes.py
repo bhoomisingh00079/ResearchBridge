@@ -282,8 +282,8 @@ def notify_project_students_of_resource(
             Application.status == "Accepted",
         ).all()
         for a in acc_apps:
-            if a.applicant_id != uploader_id:
-                recipient_user_ids.add(a.applicant_id)
+            if a.student_id != uploader_id:
+                recipient_user_ids.add(a.student_id)
 
     for uid in recipient_user_ids:
         student = db.query(User).filter(User.id == uid).first()
@@ -479,7 +479,7 @@ def download_resource(
         if proj and proj.opportunity and proj.opportunity.faculty_id == user_db.id:
             is_member = True
         elif proj and proj.opportunity_id:
-            acc = db.query(Application).filter(Application.opportunity_id == proj.opportunity_id, Application.applicant_id == user_db.id, Application.status == "Accepted").first()
+            acc = db.query(Application).filter(Application.opportunity_id == proj.opportunity_id, Application.student_id == user_db.id, Application.status == "Accepted").first()
             if acc:
                 is_member = True
 
