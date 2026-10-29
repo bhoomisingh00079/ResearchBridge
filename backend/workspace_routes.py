@@ -13,7 +13,7 @@ from typing import Any
 import binascii
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.orm import Session
 
@@ -31,13 +31,13 @@ except ImportError:  # pragma: no cover - exercised by the backend container ent
 try:
     from app.db import get_db
     from app.deps import current_user
-    from app.models import AuditLog, Milestone, Opportunity, Project, ProjectMember, Resource, Task, User
+    from app.models import AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
+    from app.services.email import send_resource_notification_email
 except ImportError:  # package import during local development
     from .app.db import get_db
     from .app.deps import current_user
-    from .app.models import AuditLog, Milestone, Opportunity, Project, ProjectMember, Resource, Task, User
-
-
+    from .app.models import AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
+    from .app.services.email import send_resource_notification_email
 router = APIRouter(tags=["Member B"])
 _storage = LocalPrivateStorage(os.getenv("PRIVATE_FILE_DIR", "./private-files"))
 
@@ -93,6 +93,20 @@ def principal(user: User = Depends(current_user), db: Session = Depends(get_db))
             "description": t.description,
             "status": t.status,
             "assigned_to": t.assigned_to,
+        }
+
+    # Sync database notifications into in-memory workspace
+    db_notifs = db.query(Notification).filter(Notification.user_id == user.id).all()
+    for n in db_notifs:
+        c_at = n.created_at.isoformat() if hasattr(n.created_at, "isoformat") else str(n.created_at)
+        workspace.notifications[n.id] = {
+            "id": n.id,
+            "user_id": n.user_id,
+            "type": n.type,
+            "message": n.message,
+            "related": n.related,
+            "read": n.read,
+            "created_at": c_at,
         }
 
     # Sync database resources into in-memory workspace
@@ -235,8 +249,68 @@ def _resource_view(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def notify_project_students_of_resource(
+    project_id: int,
+    resource_id: int,
+    resource_title: str,
+    resource_type: str,
+    uploader_id: int,
+    db: Session,
+    background_tasks: BackgroundTasks,
+) -> None:
+    uploader = db.query(User).filter(User.id == uploader_id).first()
+    faculty_name = uploader.name if uploader else "Faculty Mentor"
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    project_title = project.title if project else "Research Project"
+
+    members = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id != uploader_id,
+    ).all()
+
+    for m in members:
+        student = db.query(User).filter(User.id == m.user_id).first()
+        if not student:
+            continue
+
+        notif_msg = f"{faculty_name} shared a new {resource_type.lower()}: '{resource_title}' in {project_title}"
+        db_notif = Notification(
+            user_id=student.id,
+            type="Resource Shared",
+            message=notif_msg,
+            related=f"project:{project_id}",
+            read=False,
+        )
+        db.add(db_notif)
+        db.flush()
+        workspace.notifications[db_notif.id] = {
+            "id": db_notif.id,
+            "user_id": student.id,
+            "type": "Resource Shared",
+            "message": notif_msg,
+            "related": f"project:{project_id}",
+            "read": False,
+            "created_at": utc_now(),
+        }
+
+        if student.email:
+            background_tasks.add_task(
+                send_resource_notification_email,
+                to_email=student.email,
+                student_name=student.name,
+                faculty_name=faculty_name,
+                project_title=project_title,
+                resource_title=resource_title,
+                resource_type=resource_type,
+                project_id=project_id,
+            )
+
+    db.commit()
+
+
 @router.post("/projects/{project_id}/resources", status_code=201)
-def create_resource(project_id: int, body: ResourceIn, user: Principal = Depends(principal), db: Session = Depends(get_db)):
+def create_resource(project_id: int, body: ResourceIn, background_tasks: BackgroundTasks, user: Principal = Depends(principal), db: Session = Depends(get_db)):
     workspace.require_member(project_id, user)
     if body.type not in {"Paper", "Dataset", "Link"}:
         raise HTTPException(422, "Use the upload route for file resources")
@@ -260,11 +334,12 @@ def create_resource(project_id: int, body: ResourceIn, user: Principal = Depends
     item.update(id=rid, link_url=str(body.url) if body.url else None)
     workspace.resources[rid] = item
     workspace.log(user.id, "Resource", rid, project_id, "resource added")
+    notify_project_students_of_resource(project_id, rid, body.title.strip(), body.type, user.id, db, background_tasks)
     return {"id": rid}
 
 
 @router.post("/projects/{project_id}/resources/upload", status_code=201)
-async def upload_resource(project_id: int, request: Request, title: str = Query(min_length=1, max_length=200),
+async def upload_resource(project_id: int, request: Request, background_tasks: BackgroundTasks, title: str = Query(min_length=1, max_length=200),
                           description: str = "", user: Principal = Depends(principal), db: Session = Depends(get_db)):
     workspace.require_member(project_id, user)
     if len(description) > 4000:
@@ -295,6 +370,7 @@ async def upload_resource(project_id: int, request: Request, title: str = Query(
     workspace.resources[rid] = asdict(ResourceMetadata(project_id, title.strip(), description.strip(), "File",
                                                         reference, user.id, utc_now())) | {"id": rid, "link_url": None}
     workspace.log(user.id, "Resource", rid, project_id, "file uploaded")
+    notify_project_students_of_resource(project_id, rid, title.strip(), "File", user.id, db, background_tasks)
     return {"id": rid}
 
 
@@ -468,11 +544,15 @@ def my_notifications(user: Principal = Depends(principal), unread_only: bool = F
 
 
 @router.post("/notifications/{notification_id}/read")
-def mark_notification_read(notification_id: int, user: Principal = Depends(principal)):
+def mark_notification_read(notification_id: int, user: Principal = Depends(principal), db: Session = Depends(get_db)):
     item = workspace.notifications.get(notification_id)
     if item is None or item["user_id"] != user.id:
         raise HTTPException(404, "Notification not found")
     item["read"] = True
+    db_n = db.query(Notification).filter(Notification.id == notification_id).first()
+    if db_n:
+        db_n.read = True
+        db.commit()
     return {"ok": True}
 
 
