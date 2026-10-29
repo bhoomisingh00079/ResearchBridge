@@ -14,6 +14,7 @@ import binascii
 import os
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy.orm import Session
 
@@ -30,13 +31,15 @@ except ImportError:  # pragma: no cover - exercised by the backend container ent
 
 try:
     from app.db import get_db
-    from app.deps import current_user
-    from app.models import AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
+    from app.deps import bearer, current_user
+    from app.models import Application, AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
+    from app.security import decode_access_token
     from app.services.email import send_resource_notification_email
 except ImportError:  # package import during local development
     from .app.db import get_db
-    from .app.deps import current_user
-    from .app.models import AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
+    from .app.deps import bearer, current_user
+    from .app.models import Application, AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
+    from .app.security import decode_access_token
     from .app.services.email import send_resource_notification_email
 router = APIRouter(tags=["Member B"])
 _storage = LocalPrivateStorage(os.getenv("PRIVATE_FILE_DIR", "./private-files"))
@@ -270,8 +273,20 @@ def notify_project_students_of_resource(
         ProjectMember.user_id != uploader_id,
     ).all()
 
-    for m in members:
-        student = db.query(User).filter(User.id == m.user_id).first()
+    recipient_user_ids = {m.user_id for m in members}
+
+    # Also include students who have an accepted application for this project
+    if project and project.opportunity_id:
+        acc_apps = db.query(Application).filter(
+            Application.opportunity_id == project.opportunity_id,
+            Application.status == "Accepted",
+        ).all()
+        for a in acc_apps:
+            if a.applicant_id != uploader_id:
+                recipient_user_ids.add(a.applicant_id)
+
+    for uid in recipient_user_ids:
+        student = db.query(User).filter(User.id == uid).first()
         if not student:
             continue
 
@@ -418,11 +433,59 @@ def delete_resource(resource_id: int, user: Principal = Depends(principal)):
 
 
 @router.get("/resources/{resource_id}/download")
-def download_resource(resource_id: int, user: Principal = Depends(principal)):
+def download_resource(
+    resource_id: int,
+    token: str | None = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+):
+    raw_token = credentials.credentials if credentials else token
+    if not raw_token:
+        raise HTTPException(401, "Authentication required to download resources")
+    try:
+        payload = decode_access_token(raw_token)
+        user_db = db.get(User, int(payload["sub"]))
+    except Exception:
+        raise HTTPException(401, "Invalid or expired authentication token")
+    if user_db is None or user_db.status != "Active":
+        raise HTTPException(401, "Active user account required")
+
     row = workspace.resources.get(resource_id)
     if row is None:
-        raise HTTPException(404, "Resource not found")
-    workspace.require_member(row["project_id"], user)
+        db_res = db.query(Resource).filter(Resource.id == resource_id).first()
+        if db_res:
+            link = db_res.storage_reference if (db_res.storage_reference and (db_res.storage_reference.startswith("http://") or db_res.storage_reference.startswith("https://"))) else None
+            workspace.resources[db_res.id] = {
+                "id": db_res.id,
+                "project_id": db_res.project_id,
+                "title": db_res.title,
+                "description": db_res.description or "",
+                "type": db_res.type,
+                "storage_reference": db_res.storage_reference,
+                "uploaded_by": db_res.uploaded_by,
+                "created_at": utc_now(),
+                "link_url": link,
+            }
+            row = workspace.resources[db_res.id]
+        else:
+            raise HTTPException(404, "Resource not found")
+
+    proj_id = row["project_id"]
+    is_member = (
+        db.query(ProjectMember).filter(ProjectMember.project_id == proj_id, ProjectMember.user_id == user_db.id).first() is not None
+    )
+    if not is_member:
+        proj = db.query(Project).filter(Project.id == proj_id).first()
+        if proj and proj.opportunity and proj.opportunity.faculty_id == user_db.id:
+            is_member = True
+        elif proj and proj.opportunity_id:
+            acc = db.query(Application).filter(Application.opportunity_id == proj.opportunity_id, Application.applicant_id == user_db.id, Application.status == "Accepted").first()
+            if acc:
+                is_member = True
+
+    if not is_member and user_db.role != "Administrator":
+        raise HTTPException(403, "You must be an enrolled member of this project to download files")
+
     if not row.get("storage_reference"):
         raise HTTPException(404, "Resource has no file")
     try:

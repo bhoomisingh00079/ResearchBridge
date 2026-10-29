@@ -138,6 +138,32 @@ async function loadMilestones() {
   } catch (error) { showFailure(error, list); }
 }
 
+async function downloadFile(resourceId, filename) {
+  try {
+    setNotice("Preparing file download...", "info");
+    const currentToken = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
+    const res = await fetch(`${apiBase}/resources/${encodeURIComponent(resourceId)}/download`, {
+      headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {}
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "resource";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    setNotice("Download completed.", "success");
+  } catch (err) {
+    setNotice(err.message, "error");
+  }
+}
+
 async function loadResources() {
   const list = document.querySelector("#resource-list");
   try {
@@ -157,9 +183,16 @@ async function loadResources() {
         const link = document.createElement("a"); link.href = url; link.target = "_blank"; link.rel = "noreferrer";
         link.className = "link-resource"; link.textContent = item.title; title.append(link);
       } else if (item.has_file) {
-        const downloadUrl = `${apiBase}/resources/${encodeURIComponent(item.id)}/download`;
-        const link = document.createElement("a"); link.href = downloadUrl; link.target = "_blank";
-        link.className = "link-resource"; link.textContent = item.title;
+        const currentToken = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
+        const fallbackUrl = `${apiBase}/resources/${encodeURIComponent(item.id)}/download${currentToken ? `?token=${encodeURIComponent(currentToken)}` : ''}`;
+        const link = document.createElement("a");
+        link.href = fallbackUrl;
+        link.className = "link-resource";
+        link.textContent = item.title;
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          downloadFile(item.id, item.title);
+        });
         title.append(link);
       } else {
         title.textContent = item.title;
@@ -169,12 +202,12 @@ async function loadResources() {
       const meta = document.createElement("div"); meta.className = "row-meta";
       meta.append(badge(isDoc ? ext : item.type));
       if (item.has_file) {
-        const downloadBtn = document.createElement("a");
-        downloadBtn.href = `${apiBase}/resources/${encodeURIComponent(item.id)}/download`;
-        downloadBtn.target = "_blank";
+        const downloadBtn = document.createElement("button");
+        downloadBtn.type = "button";
         downloadBtn.className = "small-button";
-        downloadBtn.style.cssText = "text-decoration:none;display:inline-flex;align-items:center;padding:4px 8px;font-size:11px;";
+        downloadBtn.style.cssText = "display:inline-flex;align-items:center;padding:4px 8px;font-size:11px;cursor:pointer;";
         downloadBtn.textContent = "Download ⤓";
+        downloadBtn.addEventListener("click", () => downloadFile(item.id, item.title));
         meta.append(downloadBtn);
       }
       row.append(copy, meta); wrapper.append(row); list.append(wrapper);

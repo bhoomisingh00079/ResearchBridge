@@ -41,12 +41,12 @@ class Settings:
     frontend_origins: tuple[str, ...] = tuple(
         origin.strip() for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if origin.strip()
     )
-    smtp_host: str = os.getenv("SMTP_HOST", "")
+    smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
-    smtp_username: str = os.getenv("SMTP_USERNAME", "")
-    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
-    smtp_from: str = os.getenv("SMTP_FROM", "researchbridge@localhost")
-    public_base_url: str = os.getenv("PUBLIC_BASE_URL", "https://localhost")
+    smtp_username: str = os.getenv("SMTP_USERNAME", "researchbridge.091416@gmail.com")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "orni myau qjwm mlos")
+    smtp_from: str = os.getenv("SMTP_FROM", "researchbridge.091416@gmail.com")
+    public_base_url: str = os.getenv("PUBLIC_BASE_URL", "https://research-bridge-pi.vercel.app")
 
     @property
     def allows_all_domains(self) -> bool:

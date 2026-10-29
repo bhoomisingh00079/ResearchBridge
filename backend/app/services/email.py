@@ -62,10 +62,11 @@ def send_resource_notification_email(
         f"The ResearchBridge Team"
     )
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as smtp:
             smtp.starttls()
             if settings.smtp_username:
                 smtp.login(settings.smtp_username, settings.smtp_password)
             smtp.send_message(message)
-    except (OSError, smtplib.SMTPException):
-        logger.exception("Resource notification email delivery failed for %s", to_email)
+        logger.info("Resource notification email successfully sent to %s", to_email)
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.exception("Resource notification email delivery failed for %s: %s", to_email, exc)
