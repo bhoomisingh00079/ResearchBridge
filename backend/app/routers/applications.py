@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import current_user, require_roles
-from ..models import Application, AuditLog, FacultyProfile, Opportunity, OpportunityVersion, StudentProfile, User
+from ..models import Application, AuditLog, FacultyProfile, Milestone, Opportunity, OpportunityVersion, Project, ProjectMember, StudentProfile, User
 from ..rules import check_application_eligibility
 from ..schemas import ApplyIn, DecideIn
 
@@ -112,6 +112,38 @@ def decide(application_id: int, body: DecideIn, user: User = Depends(require_rol
             Application.opportunity_id == opportunity.id, Application.status == "Accepted").scalar() or 0
         if accepted >= opportunity.capacity:
             raise HTTPException(status_code=409, detail="Opportunity capacity has been reached")
+
+        # Automatically link or create Project and enroll members
+        project = db.query(Project).filter(Project.opportunity_id == opportunity.id).first()
+        if not project:
+            project = Project(
+                opportunity_id=opportunity.id,
+                title=f"{opportunity.title} Lab",
+                description=opportunity.description[:500] if opportunity.description else "",
+                domain=opportunity.domain or "Research",
+                status="Active",
+            )
+            db.add(project)
+            db.flush()
+            db.add(ProjectMember(project_id=project.id, user_id=opportunity.faculty_id, role_in_project="Lead"))
+
+        faculty_member = db.query(ProjectMember).filter(ProjectMember.project_id == project.id, ProjectMember.user_id == opportunity.faculty_id).first()
+        if not faculty_member:
+            db.add(ProjectMember(project_id=project.id, user_id=opportunity.faculty_id, role_in_project="Lead"))
+
+        student_member = db.query(ProjectMember).filter(ProjectMember.project_id == project.id, ProjectMember.user_id == application.student_id).first()
+        if not student_member:
+            db.add(ProjectMember(project_id=project.id, user_id=application.student_id, role_in_project="Member"))
+
+        has_milestone = db.query(Milestone).filter(Milestone.project_id == project.id).first()
+        if not has_milestone:
+            db.add(Milestone(
+                project_id=project.id,
+                description=f"Initial onboarding and literature review for {opportunity.title}",
+                target_date=datetime.now(timezone.utc).date() + timedelta(days=14),
+                status="In Progress",
+            ))
+
     application.status = body.status
     application.faculty_comment = body.faculty_comment
     application.decided_at = datetime.now(timezone.utc)

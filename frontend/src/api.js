@@ -10,7 +10,10 @@ export class ApiError extends Error {
 }
 
 export async function api(path, options = {}) {
-  const token = sessionStorage.getItem("rb-token");
+  const token = sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
+  if (token && !sessionStorage.getItem("rb-token")) {
+    sessionStorage.setItem("rb-token", token);
+  }
   const headers = new Headers(options.headers || {});
   if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);

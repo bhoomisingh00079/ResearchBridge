@@ -26,10 +26,12 @@ function setNotice(message, kind = "info") {
 }
 
 function authHeaders(extra = {}) {
+  token = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
   return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra };
 }
 
 async function api(path, options = {}) {
+  token = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
   if (!token) throw new Error("Sign in to view this project workspace.");
   const response = await fetch(`${apiBase}${path}`, { ...options, headers: authHeaders(options.headers || {}) });
   if (response.status === 204) return null;
@@ -328,33 +330,96 @@ document.querySelector("#letter-request-form").addEventListener("submit", async 
 });
 
 async function initWorkspace() {
+  token = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
+  if (token) {
+    sessionStorage.setItem("rb-token", token);
+    localStorage.setItem("rb-token", token);
+  }
   if (!token) {
-    setNotice("Please sign in to view your research project workspace. <a href='/#/login' style='color:var(--color-teal);font-weight:700;text-decoration:underline;margin-left:8px;'>Sign in →</a>", "error");
-    document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">Sign in to your ResearchBridge account to view your project workspace.</p><a href="/#/login" class="button button-primary" style="text-decoration:none;display:inline-block;">Sign in to continue →</a></div>';
+    setNotice("Please sign in to view your research project workspace. <a href='/#/login' style='color:var(--color-teal);font-weight:700;text-decoration:underline;margin-left:8px;'>Sign in &rarr;</a>", "error");
+    document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">Sign in to your ResearchBridge account to view your project workspace.</p><a href="/#/login" class="button button-primary" style="text-decoration:none;display:inline-block;">Sign in to continue &rarr;</a></div>';
     return;
   }
-  if (!projectId) {
+
+  let projs = [];
+  try {
+    const list = await api("/projects").catch(() => null);
+    if (Array.isArray(list) && list.length > 0) {
+      projs = list;
+    }
+  } catch (e) {
+    console.warn("Could not load /projects", e);
+  }
+
+  if (projs.length === 0) {
     try {
       const studentDash = await api("/dashboard/student").catch(() => null);
       const facultyDash = !studentDash ? await api("/dashboard/faculty").catch(() => null) : null;
-      const projs = (studentDash && studentDash.projects) || (facultyDash && facultyDash.projects) || [];
-      if (projs.length > 0) {
-        projectId = String(projs[0].project_id || projs[0].id);
-        const titleEl = document.querySelector("#project-title");
-        if (titleEl && projs[0].title) titleEl.textContent = projs[0].title;
-      } else {
-        document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">No active project enrolled yet. Browse open faculty opportunities to join a research team.</p><a href="/#/opportunities" class="button button-primary" style="text-decoration:none;display:inline-block;">Explore Opportunities →</a></div>';
-        setNotice("You do not have any active research projects yet. Once accepted into a project, your lab workspace will appear here.", "info");
-        return;
-      }
+      projs = (studentDash && studentDash.projects) || (facultyDash && (facultyDash.active_projects || facultyDash.projects)) || [];
     } catch (e) {
-      console.warn("Could not auto-resolve project", e);
+      console.warn("Could not load dashboard fallback", e);
     }
   }
-  if (!projectId) {
-    document.querySelector("#project-title").textContent = "Research workspace";
+
+  const titleEl = document.querySelector("#project-title");
+
+  if (projs.length > 0) {
+    const matchingProj = projs.find(p => String(p.id || p.project_id) === String(projectId));
+    if (matchingProj) {
+      projectId = String(matchingProj.id || matchingProj.project_id);
+      if (titleEl) titleEl.textContent = matchingProj.title || "Research workspace";
+    } else {
+      projectId = String(projs[0].id || projs[0].project_id);
+      if (titleEl) titleEl.textContent = projs[0].title || "Research workspace";
+    }
+
+    if (projs.length > 1 && titleEl) {
+      let switcher = document.querySelector("#project-switcher");
+      if (!switcher) {
+        switcher = document.createElement("select");
+        switcher.id = "project-switcher";
+        switcher.setAttribute("aria-label", "Select research project");
+        switcher.style.cssText = "margin-top: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; border-radius: 8px; border: 1px solid var(--color-border); background: #fff; color: var(--color-teal); cursor: pointer; max-width: 380px;";
+        titleEl.insertAdjacentElement("afterend", switcher);
+      }
+      switcher.innerHTML = projs.map(p => {
+        const pid = String(p.id || p.project_id);
+        const selected = pid === String(projectId) ? "selected" : "";
+        const roleStr = p.role_in_project ? ` · ${p.role_in_project}` : "";
+        return `<option value="${pid}" ${selected}>${p.title}${roleStr}</option>`;
+      }).join("");
+      switcher.onchange = async (e) => {
+        projectId = e.target.value;
+        const sel = projs.find(p => String(p.id || p.project_id) === String(projectId));
+        if (titleEl && sel) titleEl.textContent = sel.title;
+        const newParams = new URLSearchParams(window.location.search);
+        newParams.set("project", projectId);
+        history.replaceState(null, "", `${location.pathname}?${newParams.toString()}${location.hash}`);
+        await loadPanel(activePanel);
+      };
+    }
+  } else if (!projectId) {
+    let userRole = "Student";
+    try {
+      const me = await api("/me").catch(() => null);
+      if (me && me.role) userRole = me.role;
+    } catch {
+      // default
+    }
+
+    if (userRole === "Faculty") {
+      document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">No active research lab workspace yet. When student applications are accepted or a project is launched from your opportunities, your lab workspace will appear here.</p><a href="/#/my-opportunities" class="button button-primary" style="text-decoration:none;display:inline-block;">View My Opportunities &rarr;</a></div>';
+      setNotice("You do not have any active research projects yet. Review your open opportunities to accept students and activate your lab.", "info");
+    } else {
+      document.querySelector("#milestone-list").innerHTML = '<div class="empty"><p style="font-size:15px;margin-bottom:12px;">No active project enrolled yet. Browse open faculty opportunities to join a research team.</p><a href="/#/opportunities" class="button button-primary" style="text-decoration:none;display:inline-block;">Explore Opportunities &rarr;</a></div>';
+      setNotice("You do not have any active research projects yet. Once accepted into a project, your lab workspace will appear here.", "info");
+    }
+    return;
   }
-  await loadPanel("milestones");
+
+  if (projectId) {
+    await loadPanel("milestones");
+  }
 }
 
 initWorkspace();

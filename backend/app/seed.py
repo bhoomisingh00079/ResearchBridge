@@ -317,6 +317,22 @@ def seed_all() -> dict:
                 decided_at=None,
             )
             session.add(app3)
+
+        # Application 4: Priya -> Air Quality Project (Accepted)
+        app4 = session.query(Application).filter(Application.student_id == priya.id, Application.opportunity_id == opp2.id).first()
+        if not app4:
+            app4 = Application(
+                student_id=priya.id,
+                opportunity_id=opp2.id,
+                motivation="My background in statistical modeling and spatial epidemiology is directly aligned with spatiotemporal PM2.5 forecasting.",
+                profile_snapshot=json.dumps({"skills": ["Statistics", "R", "Python", "Data Visualization"], "interests": ["Public Health", "Environmental Health"]}),
+                req_version=1,
+                status="Accepted",
+                faculty_comment="Excellent background in spatio-statistical modeling. Welcomed to the lab team.",
+                submitted_at=now - timedelta(days=9),
+                decided_at=now - timedelta(days=7),
+            )
+            session.add(app4)
         session.commit()
 
         # ── 6. Projects & Project Members (Workspace) ──────────────────────────
@@ -337,6 +353,25 @@ def seed_all() -> dict:
             session.add(ProjectMember(project_id=proj1.id, user_id=dr_sharma.id, role_in_project="Lead", joined_at=now - timedelta(days=10)))
             # Student Researcher as Member
             session.add(ProjectMember(project_id=proj1.id, user_id=aarav.id, role_in_project="Member", joined_at=now - timedelta(days=10)))
+
+        # Project 2 for Prof. Sunita Patel (Urban Air Quality Lab)
+        proj2 = session.query(Project).filter(Project.title == "Urban Air Quality Analytics Lab").first()
+        if not proj2:
+            proj2 = Project(
+                opportunity_id=opp2.id,
+                title="Urban Air Quality Analytics Lab",
+                description="Collaborative research workspace investigating spatiotemporal GNNs for urban PM2.5 forecasting.",
+                domain=opp2.domain,
+                status="Active",
+                created_at=now - timedelta(days=7),
+            )
+            session.add(proj2)
+            session.flush()
+
+            # Faculty Mentor as Lead
+            session.add(ProjectMember(project_id=proj2.id, user_id=prof_patel.id, role_in_project="Lead", joined_at=now - timedelta(days=7)))
+            # Student Researcher as Member
+            session.add(ProjectMember(project_id=proj2.id, user_id=priya.id, role_in_project="Member", joined_at=now - timedelta(days=7)))
 
         # ── 7. Milestones & Tasks ──────────────────────────────────────────────
         m1 = session.query(Milestone).filter(Milestone.project_id == proj1.id, Milestone.description.like("%Literature%")).first()
@@ -406,6 +441,47 @@ def seed_all() -> dict:
                     type="Dataset",
                     storage_reference="https://www.kaggle.com/c/diabetic-retinopathy-detection",
                     uploaded_by=dr_sharma.id,
+                )
+            )
+
+        # Milestones and Resources for proj2 (Urban Air Quality Analytics Lab)
+        m2_1 = session.query(Milestone).filter(Milestone.project_id == proj2.id, Milestone.description.like("%Sensor%")).first()
+        if not m2_1:
+            m2_1 = Milestone(
+                project_id=proj2.id,
+                description="Sensor data pipeline integration and geospatial grid alignment",
+                target_date=today - timedelta(days=2),
+                status="Completed",
+                completed_at=now - timedelta(days=2),
+                last_activity_at=now - timedelta(days=2),
+            )
+            session.add(m2_1)
+            session.flush()
+
+        m2_2 = session.query(Milestone).filter(Milestone.project_id == proj2.id, Milestone.description.like("%Spatiotemporal%")).first()
+        if not m2_2:
+            m2_2 = Milestone(
+                project_id=proj2.id,
+                description="Spatiotemporal GNN model training on PM2.5 monitoring stations",
+                target_date=today + timedelta(days=7),
+                status="In Progress",
+                completed_at=None,
+                last_activity_at=now - timedelta(hours=3),
+            )
+            session.add(m2_2)
+            session.flush()
+            session.add(Task(milestone_id=m2_2.id, description="Tune temporal graph convolution window size", status="In Progress", assigned_to=priya.id))
+
+        r2_1 = session.query(Resource).filter(Resource.project_id == proj2.id, Resource.title.like("%Spatiotemporal Graph%")).first()
+        if not r2_1:
+            session.add(
+                Resource(
+                    project_id=proj2.id,
+                    title="Spatiotemporal Graph Neural Networks for Environmental Modeling",
+                    description="Comprehensive survey on dynamic graph neural architectures applied to sensor time series.",
+                    type="Paper",
+                    storage_reference="https://arxiv.org/abs/2012.09600",
+                    uploaded_by=prof_patel.id,
                 )
             )
 

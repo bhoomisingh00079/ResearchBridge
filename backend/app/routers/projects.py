@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import Application, Milestone, Project, ProjectMember, User
+from app.models import Application, Milestone, Opportunity, Project, ProjectMember, User
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -69,9 +69,24 @@ def list_projects(
     db: Session = Depends(get_db),
 ):
     memberships = db.query(ProjectMember).filter(ProjectMember.user_id == current_user.id).all()
-    project_ids = [m.project_id for m in memberships]
-    projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
-    return [{"id": p.id, "title": p.title, "domain": p.domain, "status": p.status} for p in projects]
+    member_pids = [m.project_id for m in memberships]
+    opp_ids = [o.id for o in db.query(Opportunity).filter(Opportunity.faculty_id == current_user.id).all()]
+    faculty_pids = [p.id for p in db.query(Project).filter(Project.opportunity_id.in_(opp_ids)).all()] if opp_ids else []
+    all_pids = list(set(member_pids) | set(faculty_pids))
+    if not all_pids:
+        return []
+    projects = db.query(Project).filter(Project.id.in_(all_pids)).all()
+    return [
+        {
+            "id": p.id,
+            "project_id": p.id,
+            "title": p.title,
+            "domain": p.domain,
+            "status": p.status,
+            "role_in_project": next((m.role_in_project for m in memberships if m.project_id == p.id), "Lead" if p.id in faculty_pids else "Member")
+        }
+        for p in projects
+    ]
 
 
 @router.get("/{id}")
@@ -89,7 +104,13 @@ def get_project(
         .filter(ProjectMember.project_id == id, ProjectMember.user_id == current_user.id)
         .first()
     )
-    if not is_member and current_user.role != "Administrator":
+    is_opp_faculty = False
+    if not is_member and project.opportunity_id:
+        opp = db.query(Opportunity).filter(Opportunity.id == project.opportunity_id).first()
+        if opp and opp.faculty_id == current_user.id:
+            is_opp_faculty = True
+
+    if not is_member and not is_opp_faculty and current_user.role != "Administrator":
         raise HTTPException(status_code=403, detail="Member access required")
 
     members = db.query(ProjectMember).filter(ProjectMember.project_id == id).all()

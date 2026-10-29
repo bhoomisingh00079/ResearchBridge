@@ -297,11 +297,22 @@ export default function FacultyDashboard({ token }) {
                         </span>
                       </div>
                     </div>
-                    {proj.overdue_milestones > 0 && (
-                      <span className="status-pill status-warm" style={{ color: 'var(--color-error)', background: '#fae8df' }}>
-                        ! {proj.overdue_milestones} overdue
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {proj.overdue_milestones > 0 && (
+                        <span className="status-pill status-warm" style={{ color: 'var(--color-error)', background: '#fae8df' }}>
+                          ! {proj.overdue_milestones} overdue
+                        </span>
+                      )}
+                      <a
+                        href={`/workspace?project=${proj.id}&token=${encodeURIComponent(token)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="button button-quiet"
+                        style={{ minHeight: '28px', padding: '0 10px', fontSize: '11px', textDecoration: 'none' }}
+                      >
+                        Open workspace ↗
+                      </a>
+                    </div>
                   </div>
                 </li>
               ))}

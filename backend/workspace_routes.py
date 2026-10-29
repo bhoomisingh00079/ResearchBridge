@@ -31,11 +31,11 @@ except ImportError:  # pragma: no cover - exercised by the backend container ent
 try:
     from app.db import get_db
     from app.deps import current_user
-    from app.models import Milestone, ProjectMember, Task, User
+    from app.models import AuditLog, Milestone, Opportunity, Project, ProjectMember, Resource, Task, User
 except ImportError:  # package import during local development
     from .app.db import get_db
     from .app.deps import current_user
-    from .app.models import Milestone, ProjectMember, Task, User
+    from .app.models import AuditLog, Milestone, Opportunity, Project, ProjectMember, Resource, Task, User
 
 
 router = APIRouter(tags=["Member B"])
@@ -59,6 +59,15 @@ def principal(user: User = Depends(current_user), db: Session = Depends(get_db))
         member = all_users.get(membership.user_id)
         if member and member.role == "Faculty":
             workspace.faculty_by_project.setdefault(membership.project_id, set()).add(member.id)
+
+    # Automatically recognize faculty who created the project's linked opportunity as Lead
+    all_projects = db.query(Project).all()
+    for proj in all_projects:
+        if proj.opportunity_id:
+            opp = db.query(Opportunity).filter(Opportunity.id == proj.opportunity_id).first()
+            if opp and opp.faculty_id:
+                workspace.faculty_by_project.setdefault(proj.id, set()).add(opp.faculty_id)
+                workspace.memberships.setdefault(proj.id, {})[opp.faculty_id] = "Lead"
 
     # Sync database milestones into in-memory workspace
     db_milestones = db.query(Milestone).all()
@@ -85,6 +94,39 @@ def principal(user: User = Depends(current_user), db: Session = Depends(get_db))
             "status": t.status,
             "assigned_to": t.assigned_to,
         }
+
+    # Sync database resources into in-memory workspace
+    db_resources = db.query(Resource).all()
+    for r in db_resources:
+        if r.id not in workspace.resources:
+            link = r.storage_reference if (r.storage_reference and (r.storage_reference.startswith("http://") or r.storage_reference.startswith("https://"))) else None
+            workspace.resources[r.id] = {
+                "id": r.id,
+                "project_id": r.project_id,
+                "title": r.title,
+                "description": r.description or "",
+                "type": r.type,
+                "storage_reference": r.storage_reference,
+                "uploaded_by": r.uploaded_by,
+                "created_at": utc_now(),
+                "link_url": link,
+            }
+
+    # Sync audit log into workspace activity if empty
+    if not workspace.activity:
+        logs = db.query(AuditLog).filter(AuditLog.project_id.isnot(None)).order_by(AuditLog.timestamp.asc()).all()
+        for log in logs:
+            workspace.activity.append(
+                ActivityEntry(
+                    id=log.id,
+                    actor=log.user_id,
+                    entity=log.entity_type,
+                    entity_id=log.entity_id,
+                    project_id=log.project_id,
+                    action=log.action,
+                    timestamp=log.timestamp.isoformat() if hasattr(log.timestamp, "isoformat") else str(log.timestamp),
+                )
+            )
 
     return Principal(user.id, user.role)
 
@@ -194,13 +236,25 @@ def _resource_view(item: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("/projects/{project_id}/resources", status_code=201)
-def create_resource(project_id: int, body: ResourceIn, user: Principal = Depends(principal)):
+def create_resource(project_id: int, body: ResourceIn, user: Principal = Depends(principal), db: Session = Depends(get_db)):
     workspace.require_member(project_id, user)
     if body.type not in {"Paper", "Dataset", "Link"}:
         raise HTTPException(422, "Use the upload route for file resources")
     if body.type == "Link" and not body.url:
         raise HTTPException(422, "Link resources require a URL")
-    rid = workspace.next_id("resource")
+    storage_ref = str(body.url) if body.url else f"resource-{body.type.lower()}"
+    db_res = Resource(
+        project_id=project_id,
+        title=body.title.strip(),
+        description=body.description.strip(),
+        type=body.type,
+        storage_reference=storage_ref,
+        uploaded_by=user.id,
+    )
+    db.add(db_res)
+    db.commit()
+    db.refresh(db_res)
+    rid = db_res.id
     item = asdict(ResourceMetadata(project_id, body.title.strip(), body.description.strip(), body.type,
                                   None, user.id, utc_now(), str(body.url) if body.url else None))
     item.update(id=rid, link_url=str(body.url) if body.url else None)

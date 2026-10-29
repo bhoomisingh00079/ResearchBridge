@@ -671,7 +671,12 @@ function StatusBadge({ status }) {
 }
 
 function WorkspacePage({ user, projectId }) {
-  const iframeSrc = `/workspace/index.html${projectId ? `?project=${encodeURIComponent(projectId)}` : ''}`;
+  const token = sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
+  const params = new URLSearchParams();
+  if (projectId) params.set("project", projectId);
+  if (token) params.set("token", token);
+  const qStr = params.toString();
+  const iframeSrc = `/workspace/index.html${qStr ? `?${qStr}` : ''}`;
 
   return (
     <div className="content-wrap" style={{ maxWidth: '100%', padding: '0 8px' }}>
