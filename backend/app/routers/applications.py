@@ -125,15 +125,16 @@ def decide(application_id: int, body: DecideIn, user: User = Depends(require_rol
             )
             db.add(project)
             db.flush()
-            db.add(ProjectMember(project_id=project.id, user_id=opportunity.faculty_id, role_in_project="Lead"))
 
         faculty_member = db.query(ProjectMember).filter(ProjectMember.project_id == project.id, ProjectMember.user_id == opportunity.faculty_id).first()
         if not faculty_member:
             db.add(ProjectMember(project_id=project.id, user_id=opportunity.faculty_id, role_in_project="Lead"))
+            db.flush()
 
         student_member = db.query(ProjectMember).filter(ProjectMember.project_id == project.id, ProjectMember.user_id == application.student_id).first()
         if not student_member:
             db.add(ProjectMember(project_id=project.id, user_id=application.student_id, role_in_project="Member"))
+            db.flush()
 
         has_milestone = db.query(Milestone).filter(Milestone.project_id == project.id).first()
         if not has_milestone:
@@ -143,6 +144,7 @@ def decide(application_id: int, body: DecideIn, user: User = Depends(require_rol
                 target_date=datetime.now(timezone.utc).date() + timedelta(days=14),
                 status="In Progress",
             ))
+            db.flush()
 
     application.status = body.status
     application.faculty_comment = body.faculty_comment
