@@ -265,7 +265,7 @@ def create_resource(project_id: int, body: ResourceIn, user: Principal = Depends
 
 @router.post("/projects/{project_id}/resources/upload", status_code=201)
 async def upload_resource(project_id: int, request: Request, title: str = Query(min_length=1, max_length=200),
-                          description: str = "", user: Principal = Depends(principal)):
+                          description: str = "", user: Principal = Depends(principal), db: Session = Depends(get_db)):
     workspace.require_member(project_id, user)
     if len(description) > 4000:
         raise HTTPException(422, "Description is too long")
@@ -280,7 +280,18 @@ async def upload_resource(project_id: int, request: Request, title: str = Query(
         reference = _storage.put(filename, bytes(chunks), content_type)
     except WorkspaceError as exc:
         raise HTTPException(422, str(exc)) from exc
-    rid = workspace.next_id("resource")
+    db_res = Resource(
+        project_id=project_id,
+        title=title.strip(),
+        description=description.strip(),
+        type="File",
+        storage_reference=reference,
+        uploaded_by=user.id,
+    )
+    db.add(db_res)
+    db.commit()
+    db.refresh(db_res)
+    rid = db_res.id
     workspace.resources[rid] = asdict(ResourceMetadata(project_id, title.strip(), description.strip(), "File",
                                                         reference, user.id, utc_now())) | {"id": rid, "link_url": None}
     workspace.log(user.id, "Resource", rid, project_id, "file uploaded")

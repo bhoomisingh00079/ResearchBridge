@@ -25,6 +25,10 @@ DEFAULT_RESOURCE_MIME_TYPES = {
     "application/zip",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-powerpoint",
+    "application/msword",
+    "application/octet-stream",
 }
 
 
@@ -58,7 +62,7 @@ class LocalPrivateStorage:
     def put(self, filename: str, content: bytes, content_type: str | None = None) -> str:
         if not filename or Path(filename).name != filename or "\x00" in filename:
             raise WorkspaceError("Invalid filename")
-        if Path(filename).suffix.lower() not in {".pdf", ".txt", ".csv", ".zip", ".docx", ".xlsx"}:
+        if Path(filename).suffix.lower() not in {".pdf", ".txt", ".csv", ".zip", ".docx", ".xlsx", ".pptx", ".ppt", ".doc"}:
             raise WorkspaceError("File extension is not allowed")
         if len(content) > self.max_bytes:
             raise WorkspaceError("File exceeds the configured size limit")
@@ -71,7 +75,8 @@ class LocalPrivateStorage:
         if detected == "application/pdf" and not content.startswith(b"%PDF-"):
             raise WorkspaceError("File contents do not match the declared PDF type")
         if detected in {"application/zip", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"} and not content.startswith(b"PK"):
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/vnd.openxmlformats-officedocument.presentationml.presentation"} and not content.startswith(b"PK"):
             raise WorkspaceError("File contents do not match the declared archive type")
         if detected in {"text/plain", "text/csv"} and b"\x00" in content:
             raise WorkspaceError("Text files cannot contain null bytes")

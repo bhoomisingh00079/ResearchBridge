@@ -142,21 +142,41 @@ async function loadResources() {
   const list = document.querySelector("#resource-list");
   try {
     const rows = await api(`/projects/${encodeURIComponent(projectId)}/resources`);
-    if (!rows.length) return empty(list, "No shared resources yet.");
+    if (!rows.length) return empty(list, "No resources shared yet. Upload slides (.pptx), documents (.pdf, .docx), datasets, or links.");
     list.replaceChildren();
     for (const item of rows) {
       const wrapper = card();
       const row = document.createElement("div"); row.className = "row";
       const copy = document.createElement("div");
       const title = document.createElement("h3");
-      if (item.url) {
-        const link = document.createElement("a"); link.href = item.url; link.target = "_blank"; link.rel = "noreferrer";
+      const ext = (item.title.split('.').pop() || '').toUpperCase();
+      const isDoc = ['PPTX', 'PPT', 'PDF', 'DOCX', 'DOC', 'XLSX', 'CSV', 'ZIP'].includes(ext);
+
+      if (item.link_url || item.url) {
+        const url = item.link_url || item.url;
+        const link = document.createElement("a"); link.href = url; link.target = "_blank"; link.rel = "noreferrer";
         link.className = "link-resource"; link.textContent = item.title; title.append(link);
-      } else { title.textContent = item.title; }
+      } else if (item.has_file) {
+        const downloadUrl = `${apiBase}/resources/${encodeURIComponent(item.id)}/download`;
+        const link = document.createElement("a"); link.href = downloadUrl; link.target = "_blank";
+        link.className = "link-resource"; link.textContent = item.title;
+        title.append(link);
+      } else {
+        title.textContent = item.title;
+      }
       const desc = document.createElement("p"); desc.textContent = item.description || "No description provided.";
       copy.append(title, desc);
       const meta = document.createElement("div"); meta.className = "row-meta";
-      meta.append(badge(item.type));
+      meta.append(badge(isDoc ? ext : item.type));
+      if (item.has_file) {
+        const downloadBtn = document.createElement("a");
+        downloadBtn.href = `${apiBase}/resources/${encodeURIComponent(item.id)}/download`;
+        downloadBtn.target = "_blank";
+        downloadBtn.className = "small-button";
+        downloadBtn.style.cssText = "text-decoration:none;display:inline-flex;align-items:center;padding:4px 8px;font-size:11px;";
+        downloadBtn.textContent = "Download ⤓";
+        meta.append(downloadBtn);
+      }
       row.append(copy, meta); wrapper.append(row); list.append(wrapper);
     }
   } catch (error) { showFailure(error, list); }
@@ -216,20 +236,50 @@ async function loadNotifications() {
   } catch (error) { showFailure(error, list); }
 }
 
+function currentUserRole() {
+  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role || "Student"; } catch { return "Student"; }
+}
+
 async function loadLetters() {
   const list = document.querySelector("#letter-list");
+  const isFaculty = currentUserRole() === "Faculty";
+  const reqForm = document.querySelector("#letter-request-form");
+  const fBanner = document.querySelector("#faculty-lor-banner");
+  
+  if (reqForm) reqForm.hidden = isFaculty;
+  if (fBanner) fBanner.hidden = !isFaculty;
+
+  if (!isFaculty && reqForm && projectId) {
+    try {
+      const proj = await api(`/projects/${encodeURIComponent(projectId)}`).catch(() => null);
+      if (proj && proj.members) {
+        const lead = proj.members.find(m => m.role === "Lead");
+        const leadInput = reqForm.querySelector("[name=faculty_user_id]");
+        if (lead && leadInput && !leadInput.value) {
+          leadInput.value = lead.user_id;
+        }
+      }
+    } catch {}
+  }
+
   try {
     const rows = await api("/lor/mine");
-    if (!rows.length) return empty(list, "No letters requested or issued yet.");
+    if (!rows.length) {
+      return empty(list, isFaculty ? "No student recommendation requests received yet. When students submit a request, it will appear here." : "No letters requested or issued yet.");
+    }
     list.replaceChildren();
     for (const item of rows) {
       const wrapper = card();
       const row = document.createElement("div"); row.className = "row";
       const copy = document.createElement("div");
       const title = document.createElement("h3");
-      title.textContent = item.status === "Issued" ? "Recommendation letter" : `Recommendation request (${item.status})`;
+      if (isFaculty) {
+        title.textContent = item.status === "Requested" ? `Request from Student #${item.student_user_id}` : `Recommendation for Student #${item.student_user_id} (${item.status})`;
+      } else {
+        title.textContent = item.status === "Issued" ? "Recommendation letter" : `Recommendation request (${item.status})`;
+      }
       const details = document.createElement("p");
-      details.textContent = item.body || "No letter body available.";
+      details.textContent = item.body || (item.status === "Requested" ? "Awaiting your review and decision." : "No letter body available.");
       copy.append(title, details);
       const meta = document.createElement("div"); meta.className = "row-meta";
       meta.append(badge(item.status, statusClass(item.status)));
@@ -238,7 +288,7 @@ async function loadLetters() {
         const actions = document.createElement("div"); actions.className = "row-actions";
         const issue = document.createElement("button"); issue.className = "small-button"; issue.type = "button"; issue.textContent = "Issue letter";
         issue.addEventListener("click", async () => {
-          const body = window.prompt("Write your recommendation letter:");
+          const body = window.prompt("Write your recommendation letter for the student:");
           if (!body) return;
           await decideLetter(item.id, "Issue", body);
         });
@@ -301,24 +351,53 @@ document.querySelector("#milestone-form").addEventListener("submit", async (even
   catch (error) { setNotice(error.message, "error"); }
 });
 
-document.querySelector("#resource-form [name=type]").addEventListener("change", (event) => {
-  const isFile = event.target.value === "File";
-  document.querySelector("#file-field").hidden = !isFile;
-  document.querySelector("#url-field").hidden = isFile;
-});
+const typeSelect = document.querySelector("#resource-form [name=type]");
+if (typeSelect) {
+  typeSelect.addEventListener("change", (event) => {
+    const val = event.target.value;
+    const isLink = val === "Link";
+    const isFile = val === "File";
+    document.querySelector("#file-field").hidden = isLink;
+    document.querySelector("#url-field").hidden = isFile;
+  });
+}
 document.querySelector("#resource-form").addEventListener("submit", async (event) => {
-  event.preventDefault(); const form = event.currentTarget; const values = new FormData(form); const type = values.get("type");
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const type = values.get("type");
+  const file = values.get("file");
+  const url = values.get("url");
+
   try {
-    if (type === "File") {
-      const file = values.get("file"); if (!file?.size) throw new Error("Choose a file to upload.");
+    if (file && file.size > 0 && type !== "Link") {
       const query = new URLSearchParams({ title: values.get("title"), description: values.get("description") });
-      await api(`/projects/${encodeURIComponent(projectId)}/resources/upload?${query}`, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream", "X-Filename": file.name }, body: file });
+      await api(`/projects/${encodeURIComponent(projectId)}/resources/upload?${query}`, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream", "X-Filename": file.name },
+        body: file
+      });
     } else {
-      await api(`/projects/${encodeURIComponent(projectId)}/resources`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: values.get("title"), description: values.get("description"), type, url: values.get("url") || null }) });
+      if (type === "Link" && !url) throw new Error("Please provide a valid URL for link resources.");
+      await api(`/projects/${encodeURIComponent(projectId)}/resources`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: values.get("title"),
+          description: values.get("description"),
+          type: type === "File" ? "Paper" : type,
+          url: url || null
+        })
+      });
     }
-    form.reset(); document.querySelector("#file-field").hidden = true; document.querySelector("#url-field").hidden = false;
-    setNotice("Resource added.", "success"); await Promise.all([loadResources(), loadActivity()]);
-  } catch (error) { setNotice(error.message, "error"); }
+    form.reset();
+    document.querySelector("#file-field").hidden = false;
+    document.querySelector("#url-field").hidden = true;
+    setNotice("Resource added.", "success");
+    await Promise.all([loadResources(), loadActivity()]);
+  } catch (error) {
+    setNotice(error.message, "error");
+  }
 });
 
 document.querySelector("#activity-prev").addEventListener("click", async () => { activityPage = Math.max(1, activityPage - 1); await loadActivity(); });

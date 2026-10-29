@@ -159,15 +159,23 @@ dialog h2 { margin-bottom: 20px; }
     </section>
 
     <section class="panel" id="panel-resources" aria-labelledby="resources-heading" hidden>
-      <div class="section-heading"><div><h2 id="resources-heading">Shared resources</h2><p>Files and links available to project members.</p></div></div>
+      <div class="section-heading"><div><h2 id="resources-heading">Shared resources</h2><p>Files, presentations, datasets, and links available to project members.</p></div></div>
       <form class="form-card" id="resource-form"><h3>Add a resource</h3><div class="form-grid">
-        <label>Title<input name="title" required maxlength="200" autocomplete="off"></label>
-        <label>Resource type<select name="type"><option>Link</option><option>Paper</option><option>Dataset</option><option>File</option></select></label>
-        <label class="wide" id="url-field">Link URL<input name="url" type="url" placeholder="https://…"></label>
-        <label class="wide">Description<textarea name="description" rows="2" maxlength="4000"></textarea></label>
-        <label class="wide" id="file-field" hidden>Choose a file<input name="file" type="file" accept=".pdf,.txt,.csv,.zip,.docx,.xlsx"></label>
+        <label>Title<input name="title" required maxlength="200" autocomplete="off" placeholder="e.g. Lab Presentation, Literature Survey, Dataset"></label>
+        <label>Resource type<select name="type">
+          <option value="File" selected>Presentation / Document File (.pptx, .pdf, .docx, etc.)</option>
+          <option value="Paper">Research Paper / Preprint</option>
+          <option value="Dataset">Dataset / Data Archive</option>
+          <option value="Link">Web Link / Repository</option>
+        </select></label>
+        <label class="wide" id="file-field">Upload file (PPTX, PDF, DOCX, XLSX, CSV, ZIP, TXT)
+          <input name="file" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.csv,.zip,.txt">
+          <small style="color:var(--color-muted);display:block;margin-top:4px;">Supported: PowerPoint (.pptx, .ppt), Word (.docx, .doc), PDF (.pdf), Excel/CSV (.xlsx, .csv), and ZIP archives up to 20MB.</small>
+        </label>
+        <label class="wide" id="url-field" hidden>Link URL<input name="url" type="url" placeholder="https://..."></label>
+        <label class="wide">Description<textarea name="description" rows="2" maxlength="4000" placeholder="Optional context or notes regarding this resource"></textarea></label>
       </div><button class="button button-primary" type="submit">Save resource</button></form>
-      <div class="list" id="resource-list" aria-live="polite"><div class="loading"><span class="spinner" aria-hidden="true"></span>Loading resources…</div></div>
+      <div class="list" id="resource-list" aria-live="polite"><div class="loading"><span class="spinner" aria-hidden="true"></span>Loading resources...</div></div>
     </section>
 
     <section class="panel" id="panel-activity" aria-labelledby="activity-heading" hidden>
@@ -177,8 +185,17 @@ dialog h2 { margin-bottom: 20px; }
     </section>
 
     <section class="panel" id="panel-letters" aria-labelledby="letters-heading" hidden>
-      <div class="section-heading"><div><h2 id="letters-heading">Recommendation letters</h2><p>Requests and issued letters linked to your shared project history.</p></div></div>
-      <form class="form-card compact-form" id="letter-request-form"><h3>Request a letter</h3><label>Faculty member ID<input name="faculty_user_id" type="number" min="1" required></label><button class="button button-primary" type="submit">Send request</button></form>
+      <div class="section-heading"><div><h2 id="letters-heading">Recommendation letters</h2><p id="letters-subtitle">Requests and issued letters linked to your shared project history.</p></div></div>
+      <div id="faculty-lor-banner" class="form-card" style="margin-bottom: 20px; background: #eaf3ee; border: 1px solid var(--color-sage); border-radius: 12px; padding: 18px;" hidden>
+        <h3 style="margin: 0 0 6px 0; color: var(--color-teal); font-size: 16px;">Student Recommendation Requests</h3>
+        <p style="margin: 0; font-size: 13px; color: var(--color-text); line-height: 1.5;">Review incoming recommendation requests from students who conducted research under your mentorship. You can inspect their completed deliverables, issue the formal recommendation, or decline.</p>
+      </div>
+      <form class="form-card compact-form" id="letter-request-form">
+        <h3>Request a recommendation letter</h3>
+        <p style="margin-top:0;font-size:13px;color:var(--color-muted);">Submit a request to your faculty mentor linked to this research project.</p>
+        <label>Faculty Mentor ID<input name="faculty_user_id" type="number" min="1" placeholder="Mentor ID" required></label>
+        <button class="button button-primary" type="submit">Send request</button>
+      </form>
       <div class="list" id="letter-list" aria-live="polite"></div>
     </section>
 
