@@ -102,6 +102,7 @@ def principal(user: User = Depends(current_user), db: Session = Depends(get_db))
         workspace.notifications[n.id] = {
             "id": n.id,
             "user_id": n.user_id,
+            "title": n.type or "Notification",
             "type": n.type,
             "message": n.message,
             "related": n.related,

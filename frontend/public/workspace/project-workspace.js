@@ -216,7 +216,7 @@ async function loadNotifications() {
       const wrapper = card();
       const row = document.createElement("div"); row.className = "row";
       const copy = document.createElement("div");
-      const title = document.createElement("h3"); title.textContent = item.title;
+      const title = document.createElement("h3"); title.textContent = item.title || item.type || "Notification";
       const body = document.createElement("p"); body.textContent = item.message;
       copy.append(title, body);
       const meta = document.createElement("div"); meta.className = "row-meta";
