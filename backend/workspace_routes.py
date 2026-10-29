@@ -537,7 +537,19 @@ def project_activity(project_id: int, page: int = Query(default=1, ge=1), page_s
 
 
 @router.get("/notifications")
-def my_notifications(user: Principal = Depends(principal), unread_only: bool = False):
+def my_notifications(user: Principal = Depends(principal), unread_only: bool = False, db: Session = Depends(get_db)):
+    db_notifs = db.query(Notification).filter(Notification.user_id == user.id).all()
+    for n in db_notifs:
+        c_at = n.created_at.isoformat() if hasattr(n.created_at, "isoformat") else str(n.created_at)
+        workspace.notifications[n.id] = {
+            "id": n.id,
+            "user_id": n.user_id,
+            "type": n.type,
+            "message": n.message,
+            "related": n.related,
+            "read": n.read,
+            "created_at": c_at,
+        }
     rows = [row for row in workspace.notifications.values() if row["user_id"] == user.id and (not unread_only or not row["read"])]
     rows.sort(key=lambda row: (row["created_at"], row["id"]), reverse=True)
     return rows
