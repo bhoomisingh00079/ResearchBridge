@@ -189,15 +189,14 @@ async function loadResources() {
         link.className = "link-resource"; link.textContent = item.title; title.append(link);
       } else if (item.has_file) {
         const currentToken = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
-        const fallbackUrl = `${apiBase}/resources/${encodeURIComponent(item.id)}/download${currentToken ? `?token=${encodeURIComponent(currentToken)}` : ''}`;
+        const downloadUrl = `${apiBase}/resources/${encodeURIComponent(item.id)}/download?token=${encodeURIComponent(currentToken)}`;
         const link = document.createElement("a");
-        link.href = fallbackUrl;
+        link.href = downloadUrl;
+        link.download = item.title;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
         link.className = "link-resource";
         link.textContent = item.title;
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          downloadFile(item.id, item.title);
-        });
         title.append(link);
       } else {
         title.textContent = item.title;
@@ -207,12 +206,16 @@ async function loadResources() {
       const meta = document.createElement("div"); meta.className = "row-meta";
       meta.append(badge(isDoc ? ext : item.type));
       if (item.has_file) {
-        const downloadBtn = document.createElement("button");
-        downloadBtn.type = "button";
+        const currentToken = token || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token") || "";
+        const downloadUrl = `${apiBase}/resources/${encodeURIComponent(item.id)}/download?token=${encodeURIComponent(currentToken)}`;
+        const downloadBtn = document.createElement("a");
+        downloadBtn.href = downloadUrl;
+        downloadBtn.download = item.title;
+        downloadBtn.target = "_blank";
+        downloadBtn.rel = "noopener noreferrer";
         downloadBtn.className = "small-button";
-        downloadBtn.style.cssText = "display:inline-flex;align-items:center;padding:4px 8px;font-size:11px;cursor:pointer;";
+        downloadBtn.style.cssText = "display:inline-flex;align-items:center;padding:4px 8px;font-size:11px;cursor:pointer;text-decoration:none;";
         downloadBtn.textContent = "Download ⤓";
-        downloadBtn.addEventListener("click", () => downloadFile(item.id, item.title));
         meta.append(downloadBtn);
       }
       row.append(copy, meta); wrapper.append(row); list.append(wrapper);

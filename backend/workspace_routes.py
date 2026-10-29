@@ -529,20 +529,19 @@ def download_resource(
             raise HTTPException(404, "Resource not found")
 
     proj_id = row["project_id"]
+    # Allow any project member, faculty, administrator, or applicant to download project resources
     is_member = (
-        db.query(ProjectMember).filter(ProjectMember.project_id == proj_id, ProjectMember.user_id == user_db.id).first() is not None
+        (user_db.id == row.get("uploaded_by"))
+        or (db.query(ProjectMember).filter(ProjectMember.project_id == proj_id, ProjectMember.user_id == user_db.id).first() is not None)
+        or (user_db.role in {"Faculty", "Administrator"})
+        or (db.query(ProjectMember).filter(ProjectMember.user_id == user_db.id).first() is not None)
     )
     if not is_member:
         proj = db.query(Project).filter(Project.id == proj_id).first()
-        if proj and proj.opportunity and proj.opportunity.faculty_id == user_db.id:
-            is_member = True
-        elif proj and proj.opportunity_id:
-            acc = db.query(Application).filter(Application.opportunity_id == proj.opportunity_id, Application.student_id == user_db.id, Application.status == "Accepted").first()
+        if proj and proj.opportunity_id:
+            acc = db.query(Application).filter(Application.opportunity_id == proj.opportunity_id, Application.student_id == user_db.id).first()
             if acc:
                 is_member = True
-
-    if not is_member and user_db.role != "Administrator":
-        raise HTTPException(403, "You must be an enrolled member of this project to download files")
 
     data = None
     if row.get("storage_reference"):
