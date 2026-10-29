@@ -6,6 +6,7 @@ and migrations are integrated.
 """
 
 from __future__ import annotations
+from pathlib import Path
 
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -45,10 +46,11 @@ except ImportError:  # package import during local development
 def _ensure_blob_table(db: Session):
     try:
         from sqlalchemy import text
-        db.execute(text("CREATE TABLE IF NOT EXISTS stored_blobs (reference VARCHAR(500) PRIMARY KEY, content BLOB)"))
+        col_type = "BYTEA" if ("postgres" in str(getattr(db.bind, "url", ""))) else "BLOB"
+        db.execute(text(f"CREATE TABLE IF NOT EXISTS stored_blobs (reference VARCHAR(500) PRIMARY KEY, content {col_type})"))
         db.commit()
     except Exception:
-        pass
+        db.rollback()
 
 
 def make_fallback_file(filename: str, title: str, description: str, project_title: str) -> bytes:
@@ -555,13 +557,13 @@ def download_resource(
                 from sqlalchemy import text
                 res_b = db.execute(text("SELECT content FROM stored_blobs WHERE reference = :ref"), {"ref": row["storage_reference"]}).first()
                 if res_b and res_b[0]:
-                    data = res_b[0]
+                    data = bytes(res_b[0])
                     try:
                         _storage._path(row["storage_reference"]).write_bytes(data)
                     except Exception:
                         pass
             except Exception:
-                pass
+                db.rollback()
 
     if data is None:
         proj = db.query(Project).filter(Project.id == proj_id).first()
