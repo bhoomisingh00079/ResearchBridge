@@ -1,3 +1,5 @@
+function escapeHtml(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
 const root = document.querySelector("#workspace");
 const urlParams = new URLSearchParams(location.search);
 let token = urlParams.get("token") || sessionStorage.getItem("rb-token") || localStorage.getItem("rb-token");
@@ -341,38 +343,83 @@ async function loadLetters() {
       const row = document.createElement("div"); row.className = "row";
       const copy = document.createElement("div");
       const title = document.createElement("h3");
+      const sName = item.student_name || `Student #${item.student_user_id}`;
+      const fName = item.faculty_name || `Faculty #${item.faculty_user_id}`;
+      const pTitle = item.project_title || "Research Project";
+
       if (isFaculty) {
-        title.textContent = item.status === "Requested" ? `Request from Student #${item.student_user_id}` : `Recommendation for Student #${item.student_user_id} (${item.status})`;
+        title.textContent = item.status === "Requested" ? `Recommendation Request: ${sName}` : `Recommendation for ${sName} (${item.status})`;
       } else {
-        title.textContent = item.status === "Issued" ? "Recommendation letter" : `Recommendation request (${item.status})`;
+        if (item.status === "Issued") {
+          title.textContent = `Official Letter of Recommendation from ${fName}`;
+        } else if (item.status === "Requested") {
+          title.textContent = `Recommendation Request Pending (${fName})`;
+        } else {
+          title.textContent = `Recommendation Request (${item.status})`;
+        }
       }
-      const details = document.createElement("p");
-      details.textContent = item.body || (item.status === "Requested" ? "Awaiting your review and decision." : "No letter body available.");
+
+      const details = document.createElement("div");
+      if (item.status === "Issued") {
+        details.innerHTML = `<p style="margin: 4px 0 10px 0; font-size: 13px; color: var(--color-muted);">Project: <strong>${escapeHtml(pTitle)}</strong> · Issued by <strong>${escapeHtml(fName)}</strong></p><div style="white-space: pre-wrap; background: #fdfcf7; border: 1px solid #d5ded6; border-radius: 8px; padding: 16px; font-family: Georgia, serif; font-size: 13.5px; line-height: 1.6; color: #173634;">${escapeHtml(item.body || "No letter body available.")}</div>`;
+      } else if (isFaculty) {
+        details.innerHTML = `<p style="margin: 4px 0; font-size: 13px; color: var(--color-muted);">Student: <strong>${escapeHtml(sName)}</strong> ${item.student_email ? `(${escapeHtml(item.student_email)})` : ""}<br>Project: <strong>${escapeHtml(pTitle)}</strong></p><p style="margin-top: 6px;">${item.status === "Requested" ? "Awaiting your review and recommendation decision." : escapeHtml(item.body || "")}</p>`;
+      } else {
+        details.innerHTML = `<p style="margin: 4px 0; font-size: 13px; color: var(--color-muted);">Project: <strong>${escapeHtml(pTitle)}</strong> · Mentor: <strong>${escapeHtml(fName)}</strong></p><p style="margin-top: 6px;">Submitted to faculty mentor. Awaiting review and decision.</p>`;
+      }
+
       copy.append(title, details);
       const meta = document.createElement("div"); meta.className = "row-meta";
       meta.append(badge(item.status, statusClass(item.status)));
       row.append(copy, meta); wrapper.append(row);
-      if ((isFaculty || item.faculty_user_id === currentUserId()) && item.status === "Requested") {
-        const actions = document.createElement("div"); actions.className = "row-actions";
-        const issue = document.createElement("button"); issue.className = "small-button"; issue.type = "button"; issue.textContent = "Issue letter";
+
+      const actionRow = document.createElement("div");
+      actionRow.className = "row-actions";
+      actionRow.style.cssText = "margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;";
+
+      if (isFaculty && item.status === "Requested") {
+        const issue = document.createElement("button"); issue.className = "button button-primary"; issue.type = "button"; issue.textContent = "Issue letter";
         issue.addEventListener("click", async () => {
-          const body = window.prompt("Write your recommendation letter for the student:");
-          if (!body) return;
-          await decideLetter(item.id, "Issue", body);
+          const defaultTemplate = `TO WHOM IT MAY CONCERN,\n\nI am writing this Letter of Recommendation with great pleasure for ${sName}, who conducted research under my direct supervision on the project "${pTitle}" at Vivekananda Education Society.\n\nThroughout the project, ${sName} demonstrated exceptional analytical acumen, technical skill, and dedication to research rigor. Their contributions to our milestones and collaborative problem-solving significantly accelerated our research deliverables.\n\nI have the highest confidence in their research capabilities and recommend them enthusiastically for future academic pursuits and research positions.\n\nSincerely,\n${fName}\nFaculty Mentor, ResearchBridge Academic Network`;
+          const body = window.prompt(`Review and customize the recommendation letter for ${sName}:`, defaultTemplate);
+          if (!body || !body.trim()) return;
+          await decideLetter(item.id, "Issued", body.trim());
         });
         const decline = document.createElement("button"); decline.className = "small-button"; decline.type = "button"; decline.textContent = "Decline";
         decline.addEventListener("click", () => decideLetter(item.id, "Decline", ""));
-        actions.append(issue, decline); wrapper.append(actions);
+        actionRow.append(issue, decline);
       }
+
+      if (!isFaculty && item.status === "Issued" && item.body) {
+        const dlBtn = document.createElement("button");
+        dlBtn.className = "button button-primary";
+        dlBtn.type = "button";
+        dlBtn.textContent = "Download Letter (.txt)";
+        dlBtn.addEventListener("click", () => {
+          const blob = new Blob([item.body], { type: "text/plain;charset=utf-8" });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Letter_of_Recommendation_${sName.replace(/\s+/g, '_')}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        });
+        actionRow.append(dlBtn);
+      }
+
       const summary = document.createElement("button"); summary.className = "small-button"; summary.type = "button";
       summary.textContent = "View project snapshot";
       summary.addEventListener("click", async () => {
         try {
           const data = await api(`/lor/${item.id}/summary`);
-          setNotice(`Project summary · ${data.milestones.completed}/${data.milestones.total} milestones and ${data.tasks.completed}/${data.tasks.total} tasks completed.`, "success");
+          setNotice(`Project summary: ${data.milestones.completed}/${data.milestones.total} milestones and ${data.tasks.completed}/${data.tasks.total} tasks completed.`, "success");
         } catch (error) { setNotice(error.message, "error"); }
       });
-      wrapper.append(summary);
+      actionRow.append(summary);
+
+      wrapper.append(actionRow);
       list.append(wrapper);
     }
   } catch (error) { showFailure(error, list); }

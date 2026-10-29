@@ -70,3 +70,39 @@ def send_resource_notification_email(
         logger.info("Resource notification email successfully sent to %s", to_email)
     except (OSError, smtplib.SMTPException) as exc:
         logger.exception("Resource notification email delivery failed for %s: %s", to_email, exc)
+
+
+def send_lor_issued_email(
+    to_email: str,
+    student_name: str,
+    faculty_name: str,
+    project_title: str,
+    letter_body: str,
+) -> None:
+    settings = get_settings()
+    if not settings.smtp_host:
+        return
+    message = EmailMessage()
+    message["Subject"] = f"Letter of Recommendation Issued by {faculty_name}"
+    message["From"] = settings.smtp_from
+    message["To"] = to_email
+    message.set_content(
+        f"Dear {student_name},\n\n"
+        f"Congratulations! {faculty_name} has officially issued your Letter of Recommendation for '{project_title}'.\n\n"
+        f"=== OFFICIAL LETTER OF RECOMMENDATION ===\n\n"
+        f"{letter_body}\n\n"
+        f"========================================\n\n"
+        f"You can view and save your letter in your ResearchBridge Project Workspace:\n"
+        f"{settings.public_base_url.rstrip('/')}/workspace\n\n"
+        f"Best regards,\n"
+        f"The ResearchBridge Team"
+    )
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as smtp:
+            smtp.starttls()
+            if settings.smtp_username:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+            smtp.send_message(message)
+        logger.info("LOR email successfully sent to %s", to_email)
+    except Exception as exc:
+        logger.exception("Failed to send LOR email to %s: %s", to_email, exc)

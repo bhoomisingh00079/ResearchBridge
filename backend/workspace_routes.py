@@ -34,13 +34,13 @@ try:
     from app.deps import bearer, current_user
     from app.models import Application, AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
     from app.security import decode_access_token
-    from app.services.email import send_resource_notification_email
+    from app.services.email import send_resource_notification_email, send_lor_issued_email
 except ImportError:  # package import during local development
     from .app.db import get_db
     from .app.deps import bearer, current_user
     from .app.models import Application, AuditLog, Milestone, Notification, Opportunity, Project, ProjectMember, Resource, Task, User
     from .app.security import decode_access_token
-    from .app.services.email import send_resource_notification_email
+    from .app.services.email import send_resource_notification_email, send_lor_issued_email
 
 def _ensure_blob_table(db: Session):
     try:
@@ -791,8 +791,20 @@ def request_letter(body: LetterRequestIn, user: Principal = Depends(principal)):
 
 
 @router.get("/lor/mine")
-def my_letters(user: Principal = Depends(principal)):
-    rows = [letter for letter in workspace.letters.values() if user.id in {letter["faculty_user_id"], letter["student_user_id"]}]
+def my_letters(user: Principal = Depends(principal), db: Session = Depends(get_db)):
+    rows = []
+    for letter in workspace.letters.values():
+        if user.id in {letter["faculty_user_id"], letter["student_user_id"]}:
+            item = dict(letter)
+            st = db.query(User).filter(User.id == letter["student_user_id"]).first()
+            fa = db.query(User).filter(User.id == letter["faculty_user_id"]).first()
+            pr = db.query(Project).filter(Project.id == letter.get("project_id")).first()
+            item["student_name"] = st.name if st else f"Student #{letter['student_user_id']}"
+            item["student_email"] = st.email if st else ""
+            item["faculty_name"] = fa.name if fa else f"Faculty #{letter['faculty_user_id']}"
+            item["faculty_email"] = fa.email if fa else ""
+            item["project_title"] = pr.title if pr else "Research Project"
+            rows.append(item)
     return sorted(rows, key=lambda row: row["id"], reverse=True)
 
 
@@ -812,7 +824,7 @@ def letter_summary(letter_id: int, user: Principal = Depends(principal)):
 
 
 @router.post("/lor/{letter_id}/decide")
-def decide_letter(letter_id: int, body: LetterDecision, user: Principal = Depends(principal)):
+def decide_letter(letter_id: int, body: LetterDecision, background_tasks: BackgroundTasks, user: Principal = Depends(principal), db: Session = Depends(get_db)):
     item = workspace.letters.get(letter_id)
     if item is None:
         raise HTTPException(404, "Recommendation letter not found")
@@ -824,8 +836,50 @@ def decide_letter(letter_id: int, body: LetterDecision, user: Principal = Depend
         raise HTTPException(422, "Decision must be Issued or Declined")
     if body.decision == "Issued" and not (body.body or "").strip():
         raise HTTPException(422, "An issued letter requires its contents")
-    item.update(status=body.decision, body=(body.body or "").strip(), decided_at=utc_now())
+    
+    clean_body = (body.body or "").strip()
+    item.update(status=body.decision, body=clean_body, decided_at=utc_now())
     workspace.log(user.id, "RecommendationLetter", letter_id, item["project_id"], f"request {body.decision.lower()}")
-    message = "Your recommendation letter was issued." if body.decision == "Issued" else "Your recommendation letter request was declined."
-    workspace.notify(item["student_user_id"], "Recommendation Letter", message, f"lor:{letter_id}")
+    
+    faculty = db.query(User).filter(User.id == user.id).first()
+    faculty_name = faculty.name if faculty else "Faculty Mentor"
+    project = db.query(Project).filter(Project.id == item["project_id"]).first()
+    project_title = project.title if project else "Research Project"
+    student = db.query(User).filter(User.id == item["student_user_id"]).first()
+    student_name = student.name if student else "Student"
+
+    message = f"{faculty_name} has issued your Letter of Recommendation for {project_title}." if body.decision == "Issued" else f"Your recommendation letter request for {project_title} was declined."
+    
+    # Persistent database notification
+    db_notif = Notification(
+        user_id=item["student_user_id"],
+        type="Recommendation Letter",
+        message=message,
+        related=f"lor:{letter_id}",
+        read=False,
+    )
+    db.add(db_notif)
+    db.commit()
+    db.refresh(db_notif)
+    workspace.notifications[db_notif.id] = {
+        "id": db_notif.id,
+        "user_id": item["student_user_id"],
+        "title": "Recommendation Letter",
+        "type": "Recommendation Letter",
+        "message": message,
+        "related": f"lor:{letter_id}",
+        "read": False,
+        "created_at": utc_now(),
+    }
+    
+    if body.decision == "Issued" and student and student.email:
+        background_tasks.add_task(
+            send_lor_issued_email,
+            to_email=student.email,
+            student_name=student_name,
+            faculty_name=faculty_name,
+            project_title=project_title,
+            letter_body=clean_body,
+        )
+
     return {"id": letter_id, "status": item["status"]}
